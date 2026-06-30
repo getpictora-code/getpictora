@@ -1,0 +1,53 @@
+---
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  FUTURE TOOL TEMPLATE — Copy this file & rename to add      ║
+// ║  a new tool instantly. The shared layout, processing core,  ║
+// ║  and SEO utilities are all inherited automatically.         ║
+// ║                                                              ║
+// ║  Example tools you can create:                               ║
+// ║  - background-remover.astro  (AI background removal)         ║
+// ║  - watermark.astro           (Add watermarks)                ║
+// ║  - upscale.astro             (AI image upscaling)            ║
+// ║  - flip.astro                (Flip/mirror images)            ║
+// ║  - heic-to-jpg.astro         (HEIC conversion)               ║
+// ║  - svg-to-png.astro          (SVG rasterization)             ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ImageTools from '../components/ImageTools.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'YOUR_TOOL_NAME';
+const pageDesc = 'YOUR_UNIQUE_META_DESCRIPTION';
+const features = ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4', 'Feature 5'];
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="SoftwareApplication" data={{ name: 'YOUR_APP_NAME', description: pageDesc, features }} />
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'YOUR_TOOL_NAME', item: new URL(Astro.url.pathname, Astro.url).href }] }} />
+
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">YOUR_TOOL_LABEL Tool</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        YOUR_H1_HEADLINE
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        YOUR_SUBTITLE_EXPLAINING_THE_TOOL_VALUE
+      </p>
+    </div>
+  </section>
+
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <!--
+        Use initialTool to pre-select a tab:
+        'resize' | 'compress' | 'convert' | 'crop' | 'rotate' | 'filters'
+        Or leave empty for the default 'resize'.
+        For brand-new tool types not in the tab bar, extend ImageTools.astro.
+      -->
+      <ImageTools initialTool="resize" />
+    </div>
+  </section>
+</BaseLayout>

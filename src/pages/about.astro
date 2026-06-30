@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'About';
+const pageDesc = 'Learn about GetPictora — our mission to provide free, private, browser-based image editing tools. No uploads, no sign-ups, just powerful tools that respect your privacy.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'About', item: new URL('/about', Astro.url).href }] }} />
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Our Mission</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">About GetPictora</h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">We believe image editing should be instant, private, and free — for everyone.</p>
+    </div>
+  </section>
+
+  <!-- Mission & Values -->
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8 space-y-12">
+      <!-- Mission -->
+      <div class="rounded-2xl border border-border-secondary bg-surface-card p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-text-primary">Why we built this</h2>
+        <p class="mt-3 text-sm leading-relaxed text-text-secondary">
+          Most online image tools require you to upload files to a server — sacrificing privacy, wasting bandwidth, and adding unnecessary friction. We wanted something better.
+        </p>
+        <p class="mt-3 text-sm leading-relaxed text-text-secondary">
+          GetPictora processes everything right in your browser using the HTML5 Canvas API. Your images never leave your device. No uploads, no sign-ups, no compromises.
+        </p>
+      </div>
+
+      <!-- Values grid -->
+      <div>
+        <h2 class="text-xl font-semibold text-text-primary text-center mb-8">What we stand for</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {[
+            { icon: '🔒', title: 'Privacy First', desc: 'All processing is client-side. Your files never touch a server.' },
+            { icon: '⚡', title: 'Blazing Speed', desc: 'Canvas-based rendering means near-instant results on any device.' },
+            { icon: '🆓', title: 'Forever Free', desc: 'No paywalls, no premium tiers, no hidden fees. Ever.' },
+            { icon: '🌍', title: 'Open Access', desc: 'Works on any modern browser — desktop, tablet, or mobile.' },
+          ].map(({ icon, title, desc }) => (
+            <div class="flex flex-col items-center rounded-xl bg-surface-card border border-border-secondary p-6 text-center shadow-sm">
+              <span class="text-2xl mb-3">{icon}</span>
+              <h3 class="text-sm font-semibold text-text-primary">{title}</h3>
+              <p class="mt-1 text-xs leading-relaxed text-text-secondary">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Contact CTA -->
+      <div class="text-center rounded-2xl border border-accent/20 bg-accent-soft/30 p-8">
+        <h2 class="text-lg font-semibold text-text-primary">Want to get in touch?</h2>
+        <p class="mt-2 text-sm text-text-secondary">We'd love to hear your feedback, ideas, or partnership inquiries.</p>
+        <a href="/contact" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm animate-soft hover:bg-accent-hover">
+          Contact us
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

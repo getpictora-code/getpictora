@@ -1,0 +1,55 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ImageTools from '../../components/ImageTools.astro';
+import SchemaOrg from '../../components/SchemaOrg.astro';
+---
+
+<BaseLayout
+  title="Tools"
+  description="All image tools in one place — resize, compress, convert, crop, rotate, and apply filters. Free online image editing with no uploads. 100% private, browser-based processing."
+>
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'Tools', item: new URL('/tools', Astro.url).href }] }} />
+  <!-- Hero -->
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">All Tools</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        Every image tool you need
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Resize, compress, convert, crop, rotate, and apply filters — all in your browser.
+        Zero uploads, 100% private, lightning fast.
+      </p>
+    </div>
+  </section>
+
+  <!-- Tool Suite -->
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <ImageTools />
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { icon: '🔒', title: '100% Private', desc: 'All processing happens in your browser. No files ever leave your device.' },
+          { icon: '⚡', title: 'Lightning Fast', desc: 'Canvas-based processing means near-instant results on any modern device.' },
+          { icon: '📦', title: 'Batch Support', desc: 'Upload multiple files at once and process them all with one click.' },
+          { icon: '🎯', title: 'High Quality', desc: 'Advanced algorithms preserve image quality across all operations.' },
+          { icon: '📱', title: 'Works Everywhere', desc: 'Desktop, tablet, or mobile — our tools work on any modern browser.' },
+          { icon: '🆓', title: 'Forever Free', desc: 'No sign-ups, no paywalls, no watermarks. Just free tools.' },
+        ].map(({ icon, title, desc }) => (
+          <div class="flex flex-col items-center rounded-2xl border border-border-secondary bg-surface-card p-8 text-center shadow-sm animate-soft hover:shadow-md">
+            <span class="mb-4 text-3xl">{icon}</span>
+            <h3 class="text-lg font-semibold text-text-primary">{title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-text-secondary">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ImageTools from '../components/ImageTools.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'Compress Images Online — Reduce File Size Free';
+const pageDesc = 'Compress JPG, PNG, and WebP images online for free. Reduce file sizes while maintaining visual quality. Adjustable quality slider. No uploads, 100% private.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="SoftwareApplication" data={{ name: 'Image Compressor', description: pageDesc, features: ['Adjustable quality','Lossy & lossless','Batch compression','Instant preview','Multi-format'] }} />
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'Compress', item: new URL('/compress', Astro.url).href }] }} />
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Compress Tool</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        Compress images — smaller files, same quality
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Reduce image file sizes by up to 90%. Adjust the quality slider for the perfect balance. Works in your browser — zero uploads, instant results.
+      </p>
+    </div>
+  </section>
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <ImageTools initialTool="compress" />
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ImageTools from '../components/ImageTools.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'Rotate Images Online — Free Image Rotation Tool';
+const pageDesc = 'Rotate images online for free. Flip 90°, 180°, 270°, or enter a custom angle. Instant browser-based rotation with preview. No uploads, 100% private.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="SoftwareApplication" data={{ name: 'Image Rotator', description: pageDesc, features: ['90° presets','Custom angle','Flip support','Batch rotation','Lossless quality'] }} />
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'Rotate', item: new URL('/rotate', Astro.url).href }] }} />
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Rotate Tool</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        Rotate images — fix orientation instantly
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Correct sideways photos or apply creative rotations. 90° presets or custom angles. Canvas-based processing — your files stay private on your device.
+      </p>
+    </div>
+  </section>
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <ImageTools initialTool="rotate" />
+    </div>
+  </section>
+</BaseLayout>

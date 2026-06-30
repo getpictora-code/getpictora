@@ -1,0 +1,49 @@
+---
+import { SITE, FOOTER_LINKS } from '../../consts';
+---
+
+<footer class="border-t border-border-primary bg-surface-secondary">
+  <div
+    class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
+  >
+    <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- Brand column -->
+      <div>
+        <a href="/" class="text-lg font-bold text-text-primary">
+          {SITE.name}
+        </a>
+        <p class="mt-2 text-sm leading-relaxed text-text-secondary">
+          {SITE.tagline}
+        </p>
+      </div>
+
+      <!-- Link columns -->
+      {
+        Object.entries(FOOTER_LINKS).map(([category, links]) => (
+          <div>
+            <h3 class="text-sm font-semibold text-text-primary">{category}</h3>
+            <ul class="mt-3 space-y-2">
+              {links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    class="text-sm text-text-secondary animate-soft hover:text-text-primary"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <!-- Bottom bar -->
+    <div
+      class="mt-10 border-t border-border-secondary pt-6 text-center text-sm text-text-tertiary"
+    >
+      &copy; {new Date().getFullYear()} {SITE.name}. All rights reserved.
+    </div>
+  </div>
+</footer>

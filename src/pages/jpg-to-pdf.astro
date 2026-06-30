@@ -1,0 +1,41 @@
+---
+import ToolPageLayout from '../layouts/ToolPageLayout.astro';
+---
+
+<ToolPageLayout
+  toolName="JPG to PDF"
+  description="Convert JPG images to PDF online — free, instant, and private. No uploads, no sign-ups, just drag, drop, and download your PDF in seconds."
+  fromFormat="JPG"
+  toFormat="PDF"
+  introContent={`Need to turn your JPG images into a clean, professional PDF? You're in the right place. Our JPG to PDF converter works entirely in your browser — no files ever leave your computer. Whether you're compiling a portfolio, preparing a report, or organizing scanned documents, this tool handles it in seconds.
+
+Unlike bloated desktop software or sketchy upload sites, our converter is free, private, and blazing fast. Just select your images, arrange them in the order you want, and download a polished PDF instantly. No watermarks, no file size limits, and absolutely no account required.
+
+Thousands of designers, students, and professionals trust this tool daily. Why? Because it respects your privacy, preserves image quality, and lets you work on your terms — not some server's.`}
+  steps={[
+    { title: 'Select your images', description: 'Click the upload area or drag and drop one or more JPG files. You can select multiple images at once — we support batch processing.' },
+    { title: 'Arrange the order', description: 'Drag to reorder your images in the sequence you want them to appear in the final PDF. The first image becomes page one, the second page two, and so on.' },
+    { title: 'Adjust settings', description: 'Choose your preferred page size (A4, Letter, or custom), orientation (portrait or landscape), and margin settings to get the exact layout you need.' },
+    { title: 'Download your PDF', description: 'Click "Convert" and your PDF is ready in seconds. Download it instantly — no waiting for emails or links.' },
+  ]}
+  benefits={[
+    { icon: '🔒', title: '100% Private', description: 'All processing happens locally in your browser. No files are ever uploaded to a server.' },
+    { icon: '⚡', title: 'Lightning Fast', description: 'Optimized conversion engine processes even large batches of images in seconds.' },
+    { icon: '🎯', title: 'High Quality', description: 'Preserves original image resolution and quality. No compression artifacts.' },
+    { icon: '📱', title: 'Works Everywhere', description: 'Desktop, tablet, or mobile — our web-based tool works on any device with a browser.' },
+    { icon: '🆓', title: 'Completely Free', description: 'No hidden fees, no premium tiers, no watermarks. Free forever.' },
+    { icon: '📄', title: 'Multi-Page Support', description: 'Combine dozens of JPGs into a single, well-organized PDF document.' },
+  ]}
+  faqs={[
+    { question: 'Is this JPG to PDF converter really free?', answer: 'Yes! Our converter is 100% free with no hidden costs, no premium tiers, and no watermarks. We believe basic image tools should be accessible to everyone.' },
+    { question: 'Are my images uploaded to a server?', answer: 'No. All conversion happens directly in your browser using client-side technology. Your files never leave your computer, ensuring complete privacy.' },
+    { question: 'What is the maximum file size?', answer: 'Since processing happens locally in your browser, there are no artificial file size limits. You can convert images of any resolution — though very large files may take longer depending on your device.' },
+    { question: 'Can I convert multiple JPGs into one PDF?', answer: 'Absolutely! You can select multiple JPG files at once, arrange them in your preferred order, and combine them into a single PDF document.' },
+    { question: 'Does the converter work on mobile devices?', answer: 'Yes! Our tool works on any modern browser, including Safari on iOS and Chrome on Android. You can convert images to PDF right from your phone or tablet.' },
+  ]}
+  relatedTools={[
+    { label: 'PNG to JPG', href: '/png-to-jpg' },
+    { label: 'WebP to PNG', href: '/webp-to-png' },
+    { label: 'All Tools', href: '/tools' },
+  ]}
+/>

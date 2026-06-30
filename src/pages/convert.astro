@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ImageTools from '../components/ImageTools.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'Convert Images Online — JPG, PNG, WebP Converter';
+const pageDesc = 'Convert images between JPG, PNG, and WebP formats online for free. Change image format instantly in your browser. No uploads, 100% private, batch support.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="SoftwareApplication" data={{ name: 'Image Format Converter', description: pageDesc, features: ['Multi-format','Batch conversion','Quality control','Lossless PNG','Instant processing'] }} />
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'Convert', item: new URL('/convert', Astro.url).href }] }} />
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Convert Tool</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        Convert images to any format — free &amp; instant
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Switch between JPG, PNG, and WebP in seconds. Perfect for web optimization, compatibility, and editing workflows. 100% private browser-based conversion.
+      </p>
+    </div>
+  </section>
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <ImageTools initialTool="convert" />
+    </div>
+  </section>
+</BaseLayout>

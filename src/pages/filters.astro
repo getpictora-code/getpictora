@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ImageTools from '../components/ImageTools.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+const pageTitle = 'Apply Image Filters Online — Free Photo Filter Tool';
+const pageDesc = 'Apply filters to images online for free. Grayscale, sepia, invert, brighten, darken — all in your browser. No uploads, 100% private, instant preview.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="SoftwareApplication" data={{ name: 'Image Filter Applier', description: pageDesc, features: ['6 professional filters','Grayscale & sepia','Brightness control','Pixel-level processing','Instant preview','Batch support'] }} />
+  <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }, { name: 'Filters', item: new URL('/filters', Astro.url).href }] }} />
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Filters Tool</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        Apply image filters — transform your photos
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Grayscale, sepia, invert, brighten, or darken — choose from 6 professional filters. Instant preview, pixel-level processing, 100% private.
+      </p>
+    </div>
+  </section>
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+      <ImageTools initialTool="filters" />
+    </div>
+  </section>
+</BaseLayout>

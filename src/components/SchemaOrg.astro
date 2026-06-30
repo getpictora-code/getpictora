@@ -1,0 +1,98 @@
+---
+import { SITE } from '../consts';
+
+export interface Props {
+  type: 'WebSite' | 'Organization' | 'BreadcrumbList' | 'SoftwareApplication' | 'FAQPage';
+  data?: Record<string, any>;
+}
+
+const { type, data = {} } = Astro.props;
+const canonical = new URL(Astro.url.pathname, SITE.url).href;
+
+let schema: Record<string, any> | null = null;
+
+switch (type) {
+  case 'WebSite': {
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      '@id': `${SITE.url}/#website`,
+      url: SITE.url,
+      name: SITE.name,
+      description: SITE.description,
+      inLanguage: 'en-US',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: { '@type': 'EntryPoint', urlTemplate: `${SITE.url}/search?q={search_term_string}` },
+        'query-input': 'required name=search_term_string',
+      },
+    };
+    break;
+  }
+
+  case 'Organization': {
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      '@id': `${SITE.url}/#organization`,
+      url: SITE.url,
+      name: SITE.name,
+      description: SITE.description,
+      logo: `${SITE.url}/favicon.svg`,
+      sameAs: [`https://twitter.com/${SITE.twitter}`],
+    };
+    break;
+  }
+
+  case 'BreadcrumbList': {
+    const items = data.items || [{ name: 'Home', item: SITE.url }];
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: items.map((item: any, i: number) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: item.name,
+        item: item.item,
+      })),
+    };
+    break;
+  }
+
+  case 'SoftwareApplication': {
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      '@id': `${canonical}#software-app`,
+      name: data.name || SITE.name,
+      description: data.description || SITE.description,
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Any',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      browserRequirements: 'Requires a modern web browser with HTML5 Canvas support',
+      permissions: 'No special permissions required. All processing is client-side.',
+      featureList: (data.features || []).join(', '),
+    };
+    break;
+  }
+
+  case 'FAQPage': {
+    if (!data.questions || data.questions.length === 0) break;
+    schema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      '@id': `${canonical}#faq`,
+      mainEntity: data.questions.map((q: any) => ({
+        '@type': 'Question',
+        name: q.question,
+        acceptedAnswer: { '@type': 'Answer', text: q.answer },
+      })),
+    };
+    break;
+  }
+}
+
+const jsonLd = schema ? JSON.stringify(schema) : '';
+---
+
+{schema && <Fragment set:html={`<script type="application/ld+json">${jsonLd}</script>`} />}

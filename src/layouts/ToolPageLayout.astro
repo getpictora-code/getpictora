@@ -1,0 +1,198 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import FAQAccordion from '../components/FAQAccordion.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+export interface ToolPageProps {
+  /** e.g. "JPG to PDF" — used for SEO title, H1, schema */
+  toolName: string;
+  /** SEO meta description */
+  description: string;
+  /** Source format badge label */
+  fromFormat: string;
+  /** Target format badge label */
+  toFormat: string;
+  /** H2 intro heading (defaults to toolName) */
+  introTitle?: string;
+  /** 300-500 word content intro */
+  introContent: string;
+  /** Step-by-step guide items */
+  steps: { title: string; description: string }[];
+  /** Benefits grid items */
+  benefits: { icon: string; title: string; description: string }[];
+  /** FAQ items */
+  faqs: { question: string; answer: string }[];
+  /** Related tools for internal linking */
+  relatedTools: { label: string; href: string }[];
+}
+
+const {
+  toolName,
+  description,
+  fromFormat,
+  toFormat,
+  introTitle,
+  introContent,
+  steps,
+  benefits,
+  faqs,
+  relatedTools,
+} = Astro.props;
+
+const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — Free & Instant`;
+---
+
+<BaseLayout title={toolName} description={description}>
+  <!-- JSON-LD Structured Data for tool page -->
+  <SchemaOrg
+    type="SoftwareApplication"
+    data={{
+      name: `${toolName} Converter`,
+      description,
+      features: benefits.map((b: any) => b.title),
+    }}
+  />
+  <SchemaOrg type="FAQPage" data={{ questions: faqs }} />
+  <SchemaOrg
+    type="BreadcrumbList"
+    data={{
+      items: [
+        { name: 'Home', item: new URL('/', Astro.url).href },
+        { name: 'Tools', item: new URL('/tools', Astro.url).href },
+        { name: toolName, item: new URL(Astro.url.pathname, Astro.url).href },
+      ],
+    }}
+  />
+  <!-- ==========================================
+       HERO MINI-SECTION
+       ========================================== -->
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-24 lg:px-8">
+      <!-- Format badge -->
+      <div class="mb-6 inline-flex items-center gap-2 rounded-2xl border border-border-secondary bg-surface-card px-5 py-2.5 shadow-sm">
+        <span class="text-sm font-semibold text-text-secondary tracking-wide uppercase">{fromFormat}</span>
+        <svg class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        <span class="text-sm font-semibold text-accent tracking-wide uppercase">{toFormat}</span>
+      </div>
+
+      <h1 class="text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        {heading}
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        {description}
+      </p>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       INTRO CONTENT
+       ========================================== -->
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+      <article class="prose-custom text-text-secondary leading-relaxed space-y-4">
+        {introContent.split('\n\n').map((p) => <p>{p.trim()}</p>)}
+      </article>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       STEP-BY-STEP GUIDE
+       ========================================== -->
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent text-center">How it works</p>
+      <h2 class="mt-3 text-center text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl">
+        How to convert {fromFormat} to {toFormat}
+      </h2>
+      <ol class="mt-12 space-y-6">
+        {steps.map((step, i) => (
+          <li class="flex gap-5 rounded-2xl border border-border-secondary bg-surface-card p-6 shadow-sm animate-soft hover:shadow-md">
+            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent-soft text-sm font-bold text-accent">
+              {i + 1}
+            </span>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary">{step.title}</h3>
+              <p class="mt-1 text-sm leading-relaxed text-text-secondary">{step.description}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       BENEFITS GRID
+       ========================================== -->
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent text-center">Why choose us</p>
+      <h2 class="mt-3 text-center text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl">
+        Benefits &amp; Use Cases
+      </h2>
+      <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {benefits.map((b) => (
+          <div class="flex flex-col items-center rounded-2xl border border-border-secondary bg-surface-card p-8 text-center shadow-sm animate-soft hover:shadow-md hover:-translate-y-0.5">
+            <span class="mb-4 text-3xl">{b.icon}</span>
+            <h3 class="text-lg font-semibold text-text-primary">{b.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-text-secondary">{b.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       FAQ
+       ========================================== -->
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent text-center">FAQ</p>
+      <h2 class="mt-3 text-center text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl">
+        Frequently asked questions
+      </h2>
+      <div class="mt-10">
+        <FAQAccordion items={faqs} />
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       PRIVACY STATEMENT
+       ========================================== -->
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-2xl px-4 py-12 text-center sm:px-6 lg:px-8">
+      <div class="rounded-2xl border border-accent/20 bg-accent-soft/50 px-8 py-8">
+        <svg class="mx-auto h-8 w-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <h3 class="mt-3 text-lg font-semibold text-text-primary">Your privacy matters</h3>
+        <p class="mt-2 text-sm leading-relaxed text-text-secondary">
+          All conversions happen directly in your browser. Your files are never uploaded to any server,
+          automatically deleted after processing, and no account is required — ever.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       RELATED TOOLS
+       ========================================== -->
+  <section class="border-t border-border-secondary bg-surface-secondary">
+    <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent text-center">Explore more</p>
+      <h2 class="mt-3 text-center text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl">
+        Related tools
+      </h2>
+      <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+        {relatedTools.map((tool) => (
+          <a
+            href={tool.href}
+            class="inline-flex items-center gap-2 rounded-xl border border-border-secondary bg-surface-card px-5 py-3 text-sm font-medium text-text-primary shadow-sm animate-soft hover:border-accent hover:text-accent hover:shadow-md"
+          >
+            {tool.label}
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

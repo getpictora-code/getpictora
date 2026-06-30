@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Privacy Policy"
+  description="GetPictora Privacy Policy — learn how we protect your data. All image processing happens in your browser. No files are ever uploaded to our servers."
+>
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-3xl px-4 py-24 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Legal</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl">Privacy Policy</h1>
+      <p class="mt-4 text-sm text-text-tertiary">Last updated: June 30, 2026</p>
+
+      <div class="mt-10 space-y-8 text-text-secondary leading-relaxed">
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">1. Our Commitment to Privacy</h2>
+          <p class="mt-3">At GetPictora, we believe privacy is a fundamental right. Our core principle is simple: <strong>your files never leave your device</strong>. All image processing — resizing, compressing, converting, cropping, rotating, and applying filters — happens entirely in your web browser using client-side technology.</p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">2. Data We Collect</h2>
+          <p class="mt-3">We collect <strong>no personal data</strong>. Your images, file names, and conversion results are never uploaded to any server. We do not require accounts, logins, or any form of identification. The only data we may collect is anonymous, aggregated usage statistics (such as page views) through standard web analytics.</p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">3. How Processing Works</h2>
+          <p class="mt-3">Our tools use the HTML5 Canvas API, FileReader API, and other browser-native technologies. When you select a file, it is loaded into your browser's memory, processed locally, and the result is saved directly to your device. At no point is any file transmitted over the network for processing.</p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">4. Cookies &amp; Analytics</h2>
+          <p class="mt-3">We may use cookies for essential functionality (such as remembering your dark mode preference) and anonymous analytics to understand how visitors use our site. No personal information is collected or stored. You can disable cookies in your browser settings at any time.</p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">5. Third-Party Services</h2>
+          <p class="mt-3">We may display advertisements through Google AdSense. Google may use cookies to serve ads based on your prior visits to our site or other sites. You can opt out of personalized advertising by visiting <a href="https://adssettings.google.com" class="text-accent underline">Google Ads Settings</a>.</p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-text-primary">6. Contact</h2>
+          <p class="mt-3">If you have questions about this Privacy Policy, please contact us at <a href="mailto:getpictora@gmail.com" class="text-accent underline">getpictora@gmail.com</a>.</p>
+        </section>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

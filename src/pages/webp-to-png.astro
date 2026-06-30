@@ -1,0 +1,41 @@
+---
+import ToolPageLayout from '../layouts/ToolPageLayout.astro';
+---
+
+<ToolPageLayout
+  toolName="WebP to PNG"
+  description="Convert WebP images to PNG format online — free, instant, and private. Get universally compatible PNG files from modern WebP images in seconds."
+  fromFormat="WebP"
+  toFormat="PNG"
+  introContent={`WebP is a fantastic modern format — smaller files, great quality — but it's not supported everywhere. If you've ever tried to open a WebP in Photoshop, upload it to a legacy platform, or share it with someone on older software, you know the frustration. Our WebP to PNG converter solves this instantly.
+
+Convert any WebP image to a universally compatible PNG in seconds. The conversion preserves full quality — PNG is lossless, so you won't lose any detail. Your original WebP colors, transparency, and resolution are perfectly preserved in the output.
+
+Whether you're a designer who needs to edit a WebP in traditional software, a developer ensuring cross-browser compatibility, or just someone who needs a standard image format, this tool makes it effortless — and completely private.`}
+  steps={[
+    { title: 'Select your WebP files', description: 'Click the upload area or drag and drop one or more WebP images. Batch conversion is fully supported.' },
+    { title: 'Verify the preview', description: 'Our converter shows a live preview so you can confirm the output looks exactly as expected before downloading.' },
+    { title: 'Convert instantly', description: 'Click convert — the process happens in milliseconds since it runs entirely in your browser.' },
+    { title: 'Download PNG files', description: 'Download your converted PNGs individually or as a ZIP file. Files are ready to use anywhere.' },
+  ]}
+  benefits={[
+    { icon: '🔄', title: 'Universal Compatibility', description: 'PNG works everywhere — every browser, every operating system, every image editor.' },
+    { icon: '🎯', title: 'Lossless Quality', description: 'PNG is a lossless format. Your converted images retain 100% of the original quality.' },
+    { icon: '🫥', title: 'Transparency Support', description: 'Full alpha channel support. Transparent WebP images convert to transparent PNGs perfectly.' },
+    { icon: '🔒', title: '100% Private', description: 'All conversion happens locally. No files ever leave your browser.' },
+    { icon: '⚡', title: 'Instant Conversion', description: 'WebP to PNG conversion is extremely fast — results appear in milliseconds.' },
+    { icon: '📱', title: 'Works Everywhere', description: 'Desktop, tablet, or mobile. Convert WebP to PNG from any device with a modern browser.' },
+  ]}
+  faqs={[
+    { question: 'Why would I need to convert WebP to PNG?', answer: 'While WebP is excellent for web use, many applications don\'t support it — including older versions of Photoshop, some email clients, and legacy content management systems. PNG is universally supported and ideal for editing workflows.' },
+    { question: 'Does converting WebP to PNG increase file size?', answer: 'Yes, typically. WebP uses advanced compression that produces smaller files than PNG. Converting to PNG will increase the file size, but you gain universal compatibility and lossless quality in return.' },
+    { question: 'Will I lose quality in the conversion?', answer: 'No. Our converter preserves the full quality of the original WebP. PNG is a lossless format, so every pixel and color value is maintained exactly.' },
+    { question: 'Can I convert animated WebP to PNG?', answer: 'Our converter handles static WebP images. For animated WebP files, each frame would need to be extracted individually — we recommend using a specialized tool for that use case.' },
+    { question: 'Is WebP better than PNG?', answer: 'It depends on your use case. WebP is better for web performance (smaller files, faster loading). PNG is better for editing, compatibility, and scenarios where lossless quality is critical. Our tool lets you use both formats effortlessly.' },
+  ]}
+  relatedTools={[
+    { label: 'JPG to PDF', href: '/jpg-to-pdf' },
+    { label: 'PNG to JPG', href: '/png-to-jpg' },
+    { label: 'All Tools', href: '/tools' },
+  ]}
+/>

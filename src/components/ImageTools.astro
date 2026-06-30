@@ -1,0 +1,779 @@
+---
+// ImageTools.astro — Full interactive tool suite: Resize, Compress, Convert, Crop, Rotate, Filters
+export interface Props {
+  maxFileSizeMB?: number;
+  /** Pre-select a specific tool on load: 'resize' | 'compress' | 'convert' | 'crop' | 'rotate' | 'filters' */
+  initialTool?: string;
+}
+
+const maxFileSizeMB = Astro.props.maxFileSizeMB ?? 50;
+const maxBytes = maxFileSizeMB * 1024 * 1024;
+const initialTool = Astro.props.initialTool ?? 'resize';
+---
+
+<div id="image-tools-app" class="w-full" data-max-bytes={String(maxBytes)} data-initial-tool={initialTool}>
+  <!-- ==========================================
+       UPLOAD ZONE (Idle State)
+       ========================================== -->
+  <div id="tools-drop-zone" class="group relative">
+    <label
+      for="tools-file-input"
+      class="flex cursor-pointer flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-border-primary bg-surface-card px-4 py-12 sm:px-8 sm:py-16 text-center shadow-sm transition-all duration-300 hover:border-accent/40 hover:bg-accent-soft/20 hover:shadow-md will-change-transform"
+    >
+      <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-soft text-accent transition-transform duration-300 group-hover:scale-110">
+        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+      </div>
+      <div>
+        <p class="text-lg font-semibold text-text-primary">Drag &amp; drop your images here</p>
+        <p class="mt-1 text-sm text-text-secondary">or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF</p>
+      </div>
+      <span class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-accent-hover hover:shadow-md">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+        Browse Files
+      </span>
+      <p class="text-xs text-text-tertiary">Max {maxFileSizeMB}MB per file &middot; 100% private &middot; No uploads</p>
+      <input id="tools-file-input" type="file" class="hidden" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff" multiple />
+    </label>
+  </div>
+
+  <!-- Trust badges row (shown in idle state) -->
+  <div id="tools-trust-row" class="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[11px] leading-relaxed text-text-tertiary sm:text-xs sm:gap-x-6">
+      <span class="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0">🔒 100% Private (Local Processing)</span>
+    <span class="hidden sm:inline text-text-tertiary/30">•</span>
+    <span class="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0">⚡ Zero Server Uploads</span>
+    <span class="hidden sm:inline text-text-tertiary/30">•</span>
+    <span class="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0">🚫 No Registration</span>
+  </div>
+
+  <!-- ==========================================
+       WORKSPACE (Active State)
+       ========================================== -->
+  <div id="tools-workspace" class="hidden space-y-6">
+    <!-- Header bar -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span id="tools-file-count" class="text-sm font-medium text-text-secondary"></span>
+        <button id="tools-clear-btn" class="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          Clear all
+        </button>
+      </div>
+      <button id="tools-download-all" class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm animate-soft hover:bg-accent-hover hover:shadow-md">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        Download All
+      </button>
+    </div>
+
+    <!-- ==========================================
+         TOOL SELECTOR TABS
+         ========================================== -->
+    <div role="tablist" aria-label="Image editing tools" class="flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto">
+      {['resize','compress','convert','crop','rotate','filters'].map((tool, i) => (
+        <button
+          role="tab"
+          data-tool={tool}
+          aria-selected={i === 0 ? 'true' : 'false'}
+          aria-label={`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool`}
+          tabindex={i === 0 ? 0 : -1}
+          class={`tools-tab flex-shrink-0 min-w-[68px] sm:min-w-[80px] sm:flex-1 rounded-xl px-2.5 py-2.5 sm:px-3 text-[11px] sm:text-xs font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-accent ${
+            i === 0 ? 'bg-surface-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'
+          }`}
+        >
+          {tool.charAt(0).toUpperCase() + tool.slice(1)}
+        </button>
+      ))}
+    </div>
+
+    <!-- ==========================================
+         TOOL PARAMETER PANELS
+         ========================================== -->
+    <div id="tools-panels" class="rounded-2xl border border-border-secondary bg-surface-card p-6 shadow-sm" style="min-height: 220px;">
+      <!-- Resize Panel -->
+      <div data-panel="resize" class="space-y-4">
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex-1 min-w-[120px]">
+            <label class="block text-xs font-semibold text-text-secondary mb-1.5">Width (px)</label>
+            <input type="number" id="resize-w" value="800" min="1" max="10000" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-1 focus:ring-accent outline-none transition" />
+          </div>
+          <div class="flex-1 min-w-[120px]">
+            <label class="block text-xs font-semibold text-text-secondary mb-1.5">Height (px)</label>
+            <input type="number" id="resize-h" value="600" min="1" max="10000" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-1 focus:ring-accent outline-none transition" />
+          </div>
+          <div class="flex items-end gap-2 pt-4">
+            <button id="resize-preset-50" class="rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary">50%</button>
+            <button id="resize-preset-75" class="rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary">75%</button>
+            <button id="resize-preset-orig" class="rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary">Original</button>
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+          <input type="checkbox" id="resize-aspect" checked class="rounded accent-accent" /> Maintain aspect ratio
+        </label>
+      </div>
+
+      <!-- Compress Panel -->
+      <div data-panel="compress" class="hidden space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Quality: <span id="compress-val">80</span>%</label>
+          <input type="range" id="compress-slider" value="80" min="10" max="100" step="5" class="w-full accent-accent" />
+        </div>
+        <p class="text-xs text-text-tertiary">Lower quality = smaller file size. Preview updates live.</p>
+      </div>
+
+      <!-- Convert Panel -->
+      <div data-panel="convert" class="hidden space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Output Format</label>
+          <select id="convert-format" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            <option value="image/jpeg">JPEG (best for photos)</option>
+            <option value="image/png">PNG (lossless, supports transparency)</option>
+            <option value="image/webp">WebP (modern, smaller files)</option>
+          </select>
+        </div>
+        <div id="convert-quality-wrap">
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">JPEG/WebP Quality: <span id="convert-qval">90</span>%</label>
+          <input type="range" id="convert-quality" value="90" min="10" max="100" step="5" class="w-full accent-accent" />
+        </div>
+      </div>
+
+      <!-- Crop Panel -->
+      <div data-panel="crop" class="hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-semibold text-text-secondary mb-1">X offset</label><input type="number" id="crop-x" value="0" min="0" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
+          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Y offset</label><input type="number" id="crop-y" value="0" min="0" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
+          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Width</label><input type="number" id="crop-w" value="400" min="1" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
+          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Height</label><input type="number" id="crop-h" value="400" min="1" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
+        </div>
+      </div>
+
+      <!-- Rotate Panel -->
+      <div data-panel="rotate" class="hidden space-y-4">
+        <div class="flex flex-wrap gap-2">
+          {[
+            { deg: 90, label: '90° Right', icon: 'M3 4h13M3 20h13M3 12h17' },
+            { deg: 180, label: '180°', icon: 'M3 4h18M3 12h13M3 20h18' },
+            { deg: 270, label: '90° Left', icon: 'M21 4H8m13 16H8m13-8H4' },
+            { deg: 'custom', label: 'Custom', icon: 'M12 4v16m8-8H4' },
+          ].map(({ deg, label, icon }) => (
+            <button data-rotate={String(deg)} aria-label={label} class="rotate-btn flex items-center gap-2 rounded-xl border border-border-secondary px-4 py-3 text-sm font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-accent">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d={icon}/></svg>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div data-rotate-custom class="hidden">
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Custom angle</label>
+          <input type="number" id="rotate-custom-deg" value="45" min="-360" max="360" class="w-32 rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" />
+        </div>
+      </div>
+
+      <!-- Filters Panel -->
+      <div data-panel="filters" class="hidden space-y-4">
+        <div class="flex flex-wrap gap-2">
+          {[
+            { id: 'grayscale', label: 'Grayscale', icon: 'M12 3v18m-9-9h18' },
+            { id: 'sepia', label: 'Sepia', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+            { id: 'invert', label: 'Invert', icon: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z' },
+            { id: 'brightness-up', label: 'Brighten', icon: 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z' },
+            { id: 'brightness-down', label: 'Darken', icon: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z' },
+            { id: 'none', label: 'Reset', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+          ].map(({ id, label, icon }) => (
+            <button data-filter={id} aria-label={label} class="filter-btn flex items-center gap-2 rounded-xl border border-border-secondary px-4 py-3 text-sm font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-accent">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d={icon}/></svg>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview area -->
+    <div class="rounded-2xl border border-border-secondary bg-surface-card shadow-sm overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border-secondary">
+        <h3 class="text-sm font-semibold text-text-primary">Processed Images</h3>
+        <span id="tools-preview-count" class="text-xs text-text-tertiary"></span>
+      </div>
+      <div id="tools-preview-grid" class="p-4 space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- Template for premium preview card -->
+  <template id="tools-preview-template">
+    <div class="preview-card group rounded-xl border border-border-secondary bg-surface-secondary overflow-hidden animate-soft hover:shadow-md">
+      <!-- Image row: before + arrow + after -->
+      <div class="flex items-center gap-2 p-4">
+        <!-- Before (original) -->
+        <div class="flex-1 flex flex-col items-center min-w-0">
+          <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-surface-primary border border-border-secondary">
+            <img src="" alt="" loading="lazy" decoding="async" class="preview-orig-img h-full w-full object-contain p-1" />
+          </div>
+          <span class="mt-1.5 text-[10px] font-medium text-text-tertiary uppercase tracking-wide">Original</span>
+        </div>
+        <!-- Arrow -->
+        <svg class="h-5 w-5 flex-shrink-0 text-accent mx-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        <!-- After (processed) -->
+        <div class="flex-1 flex flex-col items-center min-w-0">
+          <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-surface-primary border-2 border-accent/20 group-hover:border-accent/50 transition-colors">
+            <canvas class="preview-canvas h-full w-full object-contain p-1"></canvas>
+          </div>
+          <span class="mt-1.5 text-[10px] font-semibold text-accent uppercase tracking-wide">Optimized</span>
+        </div>
+      </div>
+
+      <!-- Metadata footer -->
+      <div class="px-4 pb-4 space-y-2">
+        <p class="preview-name text-xs font-medium text-text-primary truncate"></p>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="inline-flex items-center gap-1 rounded-md bg-surface-primary border border-border-secondary px-2 py-1 text-[10px] font-medium text-text-tertiary">
+            <span class="preview-orig-size"></span>
+          </span>
+          <svg class="h-3 w-3 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          <span class="inline-flex items-center gap-1 rounded-md bg-accent-soft border border-accent/20 px-2 py-1 text-[10px] font-semibold text-accent">
+            <span class="preview-new-size"></span>
+          </span>
+          <span class="preview-savings hidden inline-flex items-center rounded-md bg-green-100 border border-green-200 px-2 py-1 text-[10px] font-bold text-green-700">
+          </span>
+        </div>
+        <!-- Auto-processing button: Processing → Ready -->
+        <button class="preview-download w-full rounded-lg px-3 py-2 text-xs font-semibold animate-soft bg-accent-soft text-accent">
+          <span class="preview-dl-idle flex items-center justify-center gap-1.5">
+            <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            Processing...
+          </span>
+          <span class="preview-dl-ready hidden flex items-center justify-center gap-1.5">
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            Download Ready
+          </span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Trust signals -->
+  <div class="mt-6 grid gap-3 sm:grid-cols-3" role="complementary" aria-label="Privacy and security assurances">
+    <div class="flex items-center gap-2 rounded-xl bg-accent-soft/50 px-4 py-3">
+      <svg class="h-4 w-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      <span class="text-xs font-medium text-text-secondary">Secure local processing</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-xl bg-accent-soft/50 px-4 py-3">
+      <svg class="h-4 w-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      <span class="text-xs font-medium text-text-secondary">Files auto-deleted</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-xl bg-accent-soft/50 px-4 py-3">
+      <svg class="h-4 w-4 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+      <span class="text-xs font-medium text-text-secondary">No account required</span>
+    </div>
+  </div>
+
+  <!-- AdSense slot reservation -->
+  <div class="ad-slot mt-6 rounded-2xl border border-border-secondary bg-surface-card p-4 text-center" aria-label="Advertisement">
+    <p class="text-[10px] uppercase tracking-widest text-text-tertiary">Advertisement</p>
+    <div class="mt-2 flex h-24 items-center justify-center rounded-xl bg-surface-secondary text-xs text-text-tertiary">
+      Ad Slot — 728×90
+    </div>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // IMAGE TOOLS ENGINE — Client-side processing
+  // ==========================================
+  const app = document.getElementById('image-tools-app')!;
+  const maxBytes = parseInt(app.dataset.maxBytes!);
+  const acceptedTypes = ['image/jpeg','image/png','image/webp','image/gif','image/bmp','image/tiff'];
+
+  // DOM refs
+  const dropZone = document.getElementById('tools-drop-zone')!;
+  const fileInput = document.getElementById('tools-file-input') as HTMLInputElement;
+  const workspace = document.getElementById('tools-workspace')!;
+  const fileCount = document.getElementById('tools-file-count')!;
+  const clearBtn = document.getElementById('tools-clear-btn')!;
+  const downloadAll = document.getElementById('tools-download-all')!;
+  const previewGrid = document.getElementById('tools-preview-grid')!;
+  const previewCount = document.getElementById('tools-preview-count')!;
+  const template = document.getElementById('tools-preview-template') as HTMLTemplateElement;
+  const panels = document.getElementById('tools-panels')!;
+  const trustRow = document.getElementById('tools-trust-row')!;
+
+  // State
+  let files: File[] = [];
+  let activeTool = 'resize';
+
+  // --- Drag & Drop ---
+  const dropLabel = dropZone.querySelector('label')!;
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropLabel.classList.add('border-accent','bg-accent-soft/40','scale-[1.01]','shadow-lg');
+  });
+  dropZone.addEventListener('dragleave', () => {
+    dropLabel.classList.remove('border-accent','bg-accent-soft/40','scale-[1.01]','shadow-lg');
+  });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropLabel.classList.remove('border-accent','bg-accent-soft/40','scale-[1.01]','shadow-lg');
+    handleFiles(Array.from(e.dataTransfer?.files ?? []));
+  });
+  fileInput.addEventListener('change', () => { handleFiles(Array.from(fileInput.files ?? [])); fileInput.value = ''; });
+  clearBtn.addEventListener('click', resetAll);
+  downloadAll.addEventListener('click', processAndDownloadAll);
+
+  // --- Clipboard paste support (Ctrl+V / Cmd+V) ---
+  document.addEventListener('paste', (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const blob = item.getAsFile();
+        if (blob) imageFiles.push(blob);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      handleFiles(imageFiles);
+      toast(`${imageFiles.length} image${imageFiles.length!==1?'s':''} pasted from clipboard`, 'info');
+    }
+  });
+
+  function handleFiles(incoming: File[]) {
+    const valid = incoming.filter(f => {
+      if (!acceptedTypes.includes(f.type)) { toast(`"${f.name}" is not supported`, 'error'); return false; }
+      if (f.size > maxBytes) { toast(`"${f.name}" exceeds limit`, 'error'); return false; }
+      return true;
+    });
+    if (valid.length === 0) return;
+    files = [...files, ...valid];
+    dropZone.classList.add('hidden');
+    trustRow.classList.add('hidden');
+    workspace.classList.remove('hidden');
+    updatePreviews();
+  }
+
+  function resetAll() {
+    files = [];
+    previewGrid.innerHTML = '';
+    dropZone.classList.remove('hidden');
+    trustRow.classList.remove('hidden');
+    workspace.classList.add('hidden');
+  }
+
+  // --- Preview rendering ---
+  function updatePreviews() {
+    previewGrid.innerHTML = '';
+    fileCount.textContent = `${files.length} file${files.length!==1?'s':''} selected`;
+    previewCount.textContent = `${files.length} image${files.length!==1?'s':''} loaded`;
+    files.forEach((file) => {
+      const clone = template.content.cloneNode(true) as HTMLElement;
+      const card = clone.querySelector('.preview-card')!;
+      const origImg = clone.querySelector('.preview-orig-img') as HTMLImageElement;
+      const canvas = clone.querySelector('.preview-canvas') as HTMLCanvasElement;
+      const nameEl = clone.querySelector('.preview-name')!;
+      const origSizeEl = clone.querySelector('.preview-orig-size')!;
+      const newSizeEl = clone.querySelector('.preview-new-size')!;
+      const savingsEl = clone.querySelector('.preview-savings')!;
+      const dlBtn = clone.querySelector('.preview-download')!;
+      const idleSpan = clone.querySelector('.preview-dl-idle')!;
+      const readySpan = clone.querySelector('.preview-dl-ready')!;
+
+      const url = URL.createObjectURL(file);
+      origImg.src = url;
+      nameEl.textContent = file.name;
+      origSizeEl.textContent = formatBytes(file.size);
+      newSizeEl.textContent = '...';
+
+      // Auto-process immediately — no manual "Convert" step
+      processFile(file, activeTool).then(result => {
+        const newUrl = URL.createObjectURL(result.blob);
+        card.setAttribute('data-blob-url', newUrl);
+        newSizeEl.textContent = formatBytes(result.blob.size);
+
+        // Render canvas preview
+        const previewImg = new Image();
+        previewImg.onload = () => {
+          canvas.width = previewImg.naturalWidth;
+          canvas.height = previewImg.naturalHeight;
+          canvas.getContext('2d')!.drawImage(previewImg, 0, 0);
+        };
+        previewImg.src = newUrl;
+
+        // Savings badge
+        const origBytes = file.size;
+        const newBytes = result.blob.size;
+        if (newBytes < origBytes) {
+          const pct = Math.round((1 - newBytes / origBytes) * 100);
+          savingsEl.classList.remove('hidden');
+          savingsEl.textContent = `${pct}% smaller`;
+        } else if (newBytes > origBytes) {
+          savingsEl.classList.remove('hidden');
+          savingsEl.className = savingsEl.className.replace('bg-green-100 border-green-200 text-green-700', 'bg-amber-100 border-amber-200 text-amber-700');
+          const pct = Math.round((newBytes / origBytes - 1) * 100);
+          savingsEl.textContent = `${pct}% larger`;
+        }
+
+        // Transition button: Processing → Download Ready
+        idleSpan.classList.add('hidden');
+        readySpan.classList.remove('hidden');
+        dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
+        dlBtn.addEventListener('click', () => downloadBlob(result.blob, result.filename));
+      });
+
+      previewGrid.appendChild(clone);
+    });
+  }
+
+  async function processAndDownloadAll() {
+    const results = await Promise.all(files.map(f => processFile(f, activeTool)));
+    if (results.length === 1) {
+      downloadBlob(results[0].blob, results[0].filename);
+    } else {
+      // Download as individual files with a small delay
+      results.forEach((r, i) => setTimeout(() => downloadBlob(r.blob, r.filename), i * 200));
+    }
+    toast(`Processing ${results.length} file${results.length!==1?'s':''} complete!`, 'info');
+  }
+
+  // --- Core processing ---
+  async function processFile(file: File, tool: string): Promise<{ blob: Blob; filename: string }> {
+    const img = await loadImage(file);
+    let canvas: HTMLCanvasElement;
+    let outputType = file.type;
+    let ext = file.name.split('.').pop()!;
+
+    switch (tool) {
+      case 'resize': {
+        const w = parseInt((document.getElementById('resize-w') as HTMLInputElement).value) || 800;
+        const h = parseInt((document.getElementById('resize-h') as HTMLInputElement).value) || 600;
+        const keepAspect = (document.getElementById('resize-aspect') as HTMLInputElement).checked;
+        canvas = resizeImage(img, w, h, keepAspect);
+        break;
+      }
+      case 'compress': {
+        const quality = parseInt((document.getElementById('compress-slider') as HTMLInputElement).value) / 100;
+        canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d')!.drawImage(img, 0, 0);
+        return new Promise(resolve => {
+          // Always compress to JPEG so the quality slider visibly reduces file size
+          // (PNG is lossless and ignores quality, making the slider appear broken)
+          canvas.toBlob(b => resolve({
+            blob: b!,
+            filename: file.name.replace(/\.[^.]+$/, '.jpg'),
+          }), 'image/jpeg', quality);
+        });
+      }
+      case 'convert': {
+        const fmt = (document.getElementById('convert-format') as HTMLSelectElement).value;
+        const q = parseInt((document.getElementById('convert-quality') as HTMLInputElement).value) / 100;
+        const extMap: Record<string,string> = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' };
+        canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d')!.drawImage(img, 0, 0);
+        return new Promise(resolve => {
+          canvas.toBlob(b => resolve({ blob: b!, filename: file.name.replace(/\.[^.]+$/, `.${extMap[fmt]}`) }), fmt, q);
+        });
+      }
+      case 'crop': {
+        const x = parseInt((document.getElementById('crop-x') as HTMLInputElement).value) || 0;
+        const y = parseInt((document.getElementById('crop-y') as HTMLInputElement).value) || 0;
+        const cw = parseInt((document.getElementById('crop-w') as HTMLInputElement).value) || 400;
+        const ch = parseInt((document.getElementById('crop-h') as HTMLInputElement).value) || 400;
+        canvas = document.createElement('canvas');
+        canvas.width = cw;
+        canvas.height = ch;
+        canvas.getContext('2d')!.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
+        break;
+      }
+      case 'rotate': {
+        const active = document.querySelector('.rotate-btn.bg-accent-soft');
+        const deg = active ? parseInt((active as HTMLElement).dataset.rotate!) : 90;
+        canvas = rotateImage(img, isNaN(deg) ? parseInt((document.getElementById('rotate-custom-deg') as HTMLInputElement).value) || 45 : deg);
+        break;
+      }
+      case 'filters': {
+        const activeFilter = document.querySelector('.filter-btn.bg-accent-soft');
+        const filterId = activeFilter ? (activeFilter as HTMLElement).dataset.filter! : 'grayscale';
+        canvas = applyFilter(img, filterId);
+        break;
+      }
+      default:
+        canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d')!.drawImage(img, 0, 0);
+    }
+
+    return new Promise(resolve => {
+      canvas.toBlob(b => resolve({ blob: b!, filename: file.name }), outputType, 0.92);
+    });
+  }
+
+  // --- Image operations ---
+  function loadImage(file: File): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = r.result as string; };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function resizeImage(img: HTMLImageElement, w: number, h: number, keepAspect: boolean): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    if (keepAspect) {
+      const ratio = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+      canvas.width = Math.round(img.naturalWidth * ratio);
+      canvas.height = Math.round(img.naturalHeight * ratio);
+    } else {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function rotateImage(img: HTMLImageElement, deg: number): HTMLCanvasElement {
+    const rad = deg * Math.PI / 180;
+    const sin = Math.abs(Math.sin(rad)), cos = Math.abs(Math.cos(rad));
+    const cw = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
+    const ch = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d')!;
+    ctx.translate(cw/2, ch/2);
+    ctx.rotate(rad);
+    ctx.drawImage(img, -img.naturalWidth/2, -img.naturalHeight/2);
+    return canvas;
+  }
+
+  function applyFilter(img: HTMLImageElement, filterId: string): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    if (filterId === 'none') return canvas;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      switch (filterId) {
+        case 'grayscale': { const avg = 0.299*r + 0.587*g + 0.114*b; d[i]=d[i+1]=d[i+2]=avg; break; }
+        case 'sepia': { d[i]=Math.min(255,r*0.393+g*0.769+b*0.189); d[i+1]=Math.min(255,r*0.349+g*0.686+b*0.168); d[i+2]=Math.min(255,r*0.272+g*0.534+b*0.131); break; }
+        case 'invert': { d[i]=255-r; d[i+1]=255-g; d[i+2]=255-b; break; }
+        case 'brightness-up': { d[i]=Math.min(255,r+40); d[i+1]=Math.min(255,g+40); d[i+2]=Math.min(255,b+40); break; }
+        case 'brightness-down': { d[i]=Math.max(0,r-40); d[i+1]=Math.max(0,g-40); d[i+2]=Math.max(0,b-40); break; }
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // --- Tool switching ---
+  const tabs = document.querySelectorAll<HTMLElement>('.tools-tab');
+  const tabList = document.querySelector('[role="tablist"]') as HTMLElement;
+
+  function activateTab(tab: HTMLElement) {
+    tabs.forEach(b => { b.setAttribute('aria-selected', 'false'); b.tabIndex = -1; b.className = b.className.replace(/bg-surface-card text-text-primary shadow-sm/g, 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'); });
+    tab.setAttribute('aria-selected', 'true');
+    tab.tabIndex = 0;
+    tab.focus();
+    tab.className = tab.className.replace(/text-text-secondary hover:text-text-primary hover:bg-surface-card\/60/g, 'bg-surface-card text-text-primary shadow-sm');
+    activeTool = tab.getAttribute('data-tool')!;
+    panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
+    panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => activateTab(tab));
+    tab.addEventListener('keydown', (e) => {
+      const idx = Array.from(tabs).indexOf(tab);
+      let target: HTMLElement | null = null;
+      if (e.key === 'ArrowRight') target = tabs[(idx + 1) % tabs.length];
+      if (e.key === 'ArrowLeft') target = tabs[(idx - 1 + tabs.length) % tabs.length];
+      if (e.key === 'Home') target = tabs[0];
+      if (e.key === 'End') target = tabs[tabs.length - 1];
+      if (target) { e.preventDefault(); activateTab(target); }
+    });
+  });
+
+  // Activate initial tool from data attribute (for dedicated tool pages)
+  const initial = app.dataset.initialTool;
+  if (initial) {
+    const target = document.querySelector(`[data-tool="${initial}"]`) as HTMLElement;
+    if (target) target.click();
+  }
+
+  // ==========================================
+  // REACTIVE PREVIEW ENGINE
+  // ==========================================
+  let reprocessTimer: number | null = null;
+
+  /** Re-process all files with current tool params, update canvases + badges */
+  function reprocessPreviews() {
+    if (files.length === 0) return;
+    const cards = previewGrid.querySelectorAll('.preview-card');
+    cards.forEach((card, i) => {
+      const file = files[i];
+      if (!file) return;
+      const canvas = card.querySelector('.preview-canvas') as HTMLCanvasElement;
+      const canvasWrap = canvas.parentElement!;
+      const newSizeEl = card.querySelector('.preview-new-size') as HTMLElement;
+      const savingsEl = card.querySelector('.preview-savings') as HTMLElement;
+      const dlBtn = card.querySelector('.preview-download')!;
+      const idleSpan = card.querySelector('.preview-dl-idle')!;
+      const readySpan = card.querySelector('.preview-dl-ready')!;
+
+      // Show processing state
+      canvasWrap.classList.add('preview-loading');
+      newSizeEl.textContent = '...';
+      readySpan.classList.add('hidden');
+      idleSpan.classList.remove('hidden');
+      dlBtn.className = dlBtn.className.replace('bg-accent text-white hover:bg-accent-hover hover:shadow-sm', 'bg-accent-soft text-accent');
+
+      processFile(file, activeTool).then(result => {
+        const newUrl = URL.createObjectURL(result.blob);
+        const prev = card.getAttribute('data-blob-url');
+        if (prev) URL.revokeObjectURL(prev);
+        card.setAttribute('data-blob-url', newUrl);
+        newSizeEl.textContent = formatBytes(result.blob.size);
+
+        const previewImg = new Image();
+        previewImg.onload = () => {
+          canvas.width = previewImg.naturalWidth;
+          canvas.height = previewImg.naturalHeight;
+          canvas.getContext('2d')!.drawImage(previewImg, 0, 0);
+          canvasWrap.classList.remove('preview-loading');
+        };
+        previewImg.src = newUrl;
+
+        // Transition to ready
+        idleSpan.classList.add('hidden');
+        readySpan.classList.remove('hidden');
+        dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
+
+        const origBytes = file.size;
+        const newBytes = result.blob.size;
+        savingsEl.classList.remove('hidden');
+        if (newBytes < origBytes) {
+          const pct = Math.round((1 - newBytes / origBytes) * 100);
+          savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-green-100').replace(/border-\w+-\d+/g, 'border-green-200').replace(/text-\w+-\d+/g, 'text-green-700');
+          savingsEl.textContent = `${pct}% smaller`;
+        } else if (newBytes > origBytes) {
+          const pct = Math.round((newBytes / origBytes - 1) * 100);
+          savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-amber-100').replace(/border-\w+-\d+/g, 'border-amber-200').replace(/text-\w+-\d+/g, 'text-amber-700');
+          savingsEl.textContent = `${pct}% larger`;
+        } else {
+          savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-gray-100').replace(/border-\w+-\d+/g, 'border-gray-200').replace(/text-\w+-\d+/g, 'text-gray-600');
+          savingsEl.textContent = 'Same size';
+        }
+      });
+    });
+  }
+
+  /** Debounced version for continuous inputs (sliders, number fields) */
+  function debouncedReprocess() {
+    if (reprocessTimer) clearTimeout(reprocessTimer);
+    reprocessTimer = window.setTimeout(reprocessPreviews, 250);
+  }
+
+  // ==========================================
+  // RESIZE — Live on input, instant on presets
+  // ==========================================
+  const resizeW = document.getElementById('resize-w') as HTMLInputElement;
+  const resizeH = document.getElementById('resize-h') as HTMLInputElement;
+  const resizeAspect = document.getElementById('resize-aspect') as HTMLInputElement;
+
+  resizeW?.addEventListener('input', debouncedReprocess);
+  resizeH?.addEventListener('input', debouncedReprocess);
+  resizeAspect?.addEventListener('change', reprocessPreviews);
+
+  document.querySelectorAll('[id^="resize-preset-"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pct = btn.id === 'resize-preset-50' ? 0.5 : btn.id === 'resize-preset-75' ? 0.75 : 1;
+      resizeW.value = String(Math.round(parseInt(resizeW.value || '800') * pct));
+      resizeH.value = String(Math.round(parseInt(resizeH.value || '600') * pct));
+      reprocessPreviews();
+    });
+  });
+
+  // ==========================================
+  // COMPRESS — Live on slider
+  // ==========================================
+  const compressSlider = document.getElementById('compress-slider') as HTMLInputElement;
+  const compressVal = document.getElementById('compress-val') as HTMLElement;
+  compressSlider?.addEventListener('input', () => {
+    compressVal.textContent = compressSlider.value;
+    debouncedReprocess();
+  });
+
+  // ==========================================
+  // CONVERT — Live on format & quality change
+  // ==========================================
+  const convertFormat = document.getElementById('convert-format') as HTMLSelectElement;
+  const convertQuality = document.getElementById('convert-quality') as HTMLInputElement;
+  const convertQVal = document.getElementById('convert-qval') as HTMLElement;
+  const convertQualityWrap = document.getElementById('convert-quality-wrap') as HTMLElement;
+
+  convertFormat?.addEventListener('change', () => {
+    convertQualityWrap.classList.toggle('hidden', convertFormat.value === 'image/png');
+    reprocessPreviews();
+  });
+  convertQuality?.addEventListener('input', () => {
+    convertQVal.textContent = convertQuality.value;
+    debouncedReprocess();
+  });
+
+  // ==========================================
+  // CROP — Auto-apply on input change
+  // ==========================================
+  document.querySelectorAll('[data-panel="crop"] input').forEach(input => {
+    input.addEventListener('input', debouncedReprocess);
+  });
+
+  // ==========================================
+  // ROTATE — Instant on button click
+  // ==========================================
+  document.querySelectorAll('.rotate-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.rotate-btn').forEach(b => b.classList.remove('bg-accent-soft','text-accent','border-accent/40'));
+      btn.classList.add('bg-accent-soft','text-accent','border-accent/40');
+      const custom = document.querySelector('[data-rotate-custom]') as HTMLElement;
+      custom.classList.toggle('hidden', btn.getAttribute('data-rotate') !== 'custom');
+      reprocessPreviews();
+    });
+  });
+
+  const rotateCustomDeg = document.getElementById('rotate-custom-deg') as HTMLInputElement;
+  rotateCustomDeg?.addEventListener('input', debouncedReprocess);
+
+  // ==========================================
+  // FILTERS — Instant on button click
+  // ==========================================
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('bg-accent-soft','text-accent','border-accent/40'));
+      btn.classList.add('bg-accent-soft','text-accent','border-accent/40');
+      reprocessPreviews();
+    });
+  });
+
+  // Utils
+  function formatBytes(b: number) { return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB'; }
+  function toast(msg: string, type: 'error'|'info') {
+    const t = document.createElement('div');
+    t.className = `fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-lg animate-soft ${type==='error'?'bg-red-500 text-white':'bg-surface-card border border-border-primary text-text-primary'}`;
+    t.textContent = msg; document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3500);
+  }
+</script>

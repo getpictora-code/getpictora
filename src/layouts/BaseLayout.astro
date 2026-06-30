@@ -1,0 +1,79 @@
+---
+import '../styles/global.css';
+import Head from '../components/base/Head.astro';
+import Header from '../components/base/Header.astro';
+import Footer from '../components/base/Footer.astro';
+import SchemaOrg from '../components/SchemaOrg.astro';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <!-- Theme FOUC prevention — runs BEFORE first paint -->
+    <script is:inline>
+      (function() {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <!-- System fonts used — no external font downloads needed -->
+    <!-- Prevent layout shifts: set explicit height for all img/video before load -->
+    <style>
+      img:not([width]):not([height]) { aspect-ratio: attr(width) attr(height); }
+      .preview-card img, .file-thumb img { aspect-ratio: 1 / 1; object-fit: cover; }
+    </style>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" type="image/png" href="/favicon.png" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!--
+      Google Analytics (GA4) — replace G-XXXXXXXXXX with your Measurement ID
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+      <script is:inline>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-XXXXXXXXXX');
+      </script>
+    -->
+
+    <Head
+      title={Astro.props.title}
+      description={Astro.props.description}
+      ogImage={Astro.props.ogImage}
+    />
+    <!-- Site-wide JSON-LD Structured Data -->
+    <SchemaOrg type="WebSite" />
+    <SchemaOrg type="Organization" />
+    <SchemaOrg type="BreadcrumbList" data={{ items: [{ name: 'Home', item: new URL('/', Astro.url).href }] }} />
+  </head>
+  <body class="flex min-h-screen flex-col antialiased">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <Header />
+    <main class="flex-1" id="main-content">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<!-- Deferred non-critical CSS for lazy-loaded images -->
+<script>
+  // Add lazy loading to all images that don't already have it
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('img:not([loading])').forEach(img => {
+      img.setAttribute('loading', 'lazy');
+      img.setAttribute('decoding', 'async');
+    });
+  });
+</script>

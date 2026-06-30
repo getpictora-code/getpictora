@@ -1,0 +1,40 @@
+---
+import ToolPageLayout from '../layouts/ToolPageLayout.astro';
+---
+
+<ToolPageLayout
+  toolName="PNG to JPG"
+  description="Convert PNG images to JPG format online — free, instant, and private. Reduce file sizes while maintaining quality. No uploads required."
+  fromFormat="PNG"
+  toFormat="JPG"
+  introContent={`Got a PNG that's too large or needs to be in JPG format? Our PNG to JPG converter makes it effortless. Convert your images in seconds without uploading anything to the cloud — everything happens right in your browser.
+
+PNG files are great for quality, but they're often huge — sometimes 5-10x larger than the equivalent JPG. This matters when you're optimizing a website, sending email attachments, or uploading to platforms with file size limits. Our converter strikes the perfect balance between quality and file size.
+
+The tool preserves color accuracy and resolution while significantly reducing file size. Whether you're a web developer optimizing load times, a photographer preparing proofs, or just someone who needs a smaller file, this is the tool for you.`}
+  steps={[
+    { title: 'Select your PNG files', description: 'Click the upload area or drag and drop one or more PNG images. You can convert multiple files in a single batch.' },
+    { title: 'Adjust quality settings', description: 'Use the quality slider to find your ideal balance between file size and image fidelity. Higher quality means larger files.' },
+    { title: 'Preview before converting', description: 'Check a side-by-side preview to see exactly how your image will look after conversion. No surprises.' },
+    { title: 'Download JPG files', description: 'Click convert and download your optimized JPG files instantly — individually or as a ZIP bundle for batch conversions.' },
+  ]}
+  benefits={[
+    { icon: '📦', title: 'Smaller Files', description: 'Reduce PNG file sizes by up to 90% while maintaining visually lossless quality.' },
+    { icon: '🔒', title: '100% Private', description: 'All processing happens locally in your browser. No files are ever uploaded.' },
+    { icon: '🌐', title: 'Web Optimized', description: 'Perfect for websites, blogs, and social media — JPG is the universal image format.' },
+    { icon: '🎨', title: 'Color Preserving', description: 'Advanced conversion engine maintains color accuracy and prevents banding artifacts.' },
+    { icon: '📱', title: 'Mobile Friendly', description: 'Works perfectly on iOS and Android. Convert images on the go.' },
+    { icon: '⚡', title: 'Batch Processing', description: 'Convert dozens of PNGs to JPG simultaneously. Perfect for large projects.' },
+  ]}
+  faqs={[
+    { question: 'Will I lose quality converting PNG to JPG?', answer: 'JPG is a lossy format, so some compression is applied. However, our converter uses high-quality settings by default, and you can adjust the quality slider to find your ideal balance. At 90-100% quality, the difference is virtually invisible to the human eye.' },
+    { question: 'Why are my PNG files so large?', answer: 'PNG uses lossless compression, which preserves every pixel perfectly but results in larger file sizes. This is ideal for graphics and logos, but for photographs and web use, JPG typically offers 5-10x smaller files with minimal quality loss.' },
+    { question: 'Can I convert transparent PNGs to JPG?', answer: 'Yes! JPG does not support transparency, so any transparent areas in your PNG will be filled with a white background in the resulting JPG. This is standard behavior across all converters.' },
+    { question: 'Is there a limit to how many files I can convert?', answer: 'No! Since processing happens locally in your browser, you can convert as many files as you want. There are no daily limits, no queues, and no paywalls.' },
+  ]}
+  relatedTools={[
+    { label: 'JPG to PDF', href: '/jpg-to-pdf' },
+    { label: 'WebP to PNG', href: '/webp-to-png' },
+    { label: 'All Tools', href: '/tools' },
+  ]}
+/>
