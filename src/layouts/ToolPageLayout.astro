@@ -40,6 +40,10 @@ const {
 } = Astro.props;
 
 const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — Free & Instant`;
+
+// Pre-process template data to avoid implicit 'any' in Astro template expressions
+const introParagraphs = introContent.split('\n\n').map((p: string) => p.trim()).filter(Boolean);
+const numberedSteps = steps.map((step: { title: string; description: string }, i: number) => ({ ...step, index: i + 1 }));
 ---
 
 <BaseLayout title={toolName} description={description}>
@@ -90,8 +94,8 @@ const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — F
        ========================================== -->
   <section class="bg-surface-primary">
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-      <article class="prose-custom text-text-secondary leading-relaxed space-y-4">
-        {introContent.split('\n\n').map((p) => <p>{p.trim()}</p>)}
+      <article class="text-text-secondary leading-relaxed space-y-4">
+        {introParagraphs.map((para: string) => <p>{para}</p>)}
       </article>
     </div>
   </section>
@@ -106,10 +110,10 @@ const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — F
         How to convert {fromFormat} to {toFormat}
       </h2>
       <ol class="mt-12 space-y-6">
-        {steps.map((step, i) => (
+        {numberedSteps.map((step: { title: string; description: string; index: number }) => (
           <li class="flex gap-5 rounded-2xl border border-border-secondary bg-surface-card p-6 shadow-sm animate-soft hover:shadow-md">
             <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent-soft text-sm font-bold text-accent">
-              {i + 1}
+              {step.index}
             </span>
             <div>
               <h3 class="text-base font-semibold text-text-primary">{step.title}</h3>
@@ -131,7 +135,7 @@ const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — F
         Benefits &amp; Use Cases
       </h2>
       <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {benefits.map((b) => (
+        {benefits.map((b: { icon: string; title: string; description: string }) => (
           <div class="flex flex-col items-center rounded-2xl border border-border-secondary bg-surface-card p-8 text-center shadow-sm animate-soft hover:shadow-md hover:-translate-y-0.5">
             <span class="mb-4 text-3xl">{b.icon}</span>
             <h3 class="text-lg font-semibold text-text-primary">{b.title}</h3>
@@ -183,7 +187,7 @@ const heading = introTitle ?? `Convert ${fromFormat} to ${toFormat} Online — F
         Related tools
       </h2>
       <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
-        {relatedTools.map((tool) => (
+        {relatedTools.map((tool: { label: string; href: string }) => (
           <a
             href={tool.href}
             class="inline-flex items-center gap-2 rounded-xl border border-border-secondary bg-surface-card px-5 py-3 text-sm font-medium text-text-primary shadow-sm animate-soft hover:border-accent hover:text-accent hover:shadow-md"
