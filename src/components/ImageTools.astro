@@ -596,12 +596,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // Generous delay — PC browsers need time to fully stream bytes before URL is revoked
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
   function downloadBlobUrl(url: string, filename: string) {
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   // --- Tool switching ---
