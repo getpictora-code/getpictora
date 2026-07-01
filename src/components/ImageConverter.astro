@@ -125,7 +125,7 @@ const formatLabels = acceptFormats
         </span>
         <span class="file-error" style="display:none; color:#ef4444; font-size:12px; font-weight:500"></span>
       </div>
-      <button class="file-download hidden flex-shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white animate-soft hover:bg-accent-hover">
+      <button class="file-download flex-shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white animate-soft hover:bg-accent-hover" style="display:none">
         <span class="dl-text">Download</span>
         <svg class="dl-spinner animate-spin h-3.5 w-3.5 ml-1.5" style="display:none" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -364,7 +364,7 @@ const formatLabels = acceptFormats
     toast.textContent = msg;
 
     // Show: slide up + fade in
-    toast.style.display = '';
+    toast.style.display = 'block';
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(20px)';
     requestAnimationFrame(() => {
