@@ -23,6 +23,8 @@ const resolvedOgImage = new URL(metaImage, SITE.url).href;
 <!-- Primary Meta -->
 <title>{pageTitle}</title>
 <meta name="description" content={metaDescription} />
+<meta name="keywords" content="image converter, image resizer, compress png, compress jpeg, batch image processing, online image crop, getpictora, free image tools, browser image editor" />
+<meta name="robots" content="index, follow" />
 <link rel="canonical" href={canonicalHref} />
 
 <!-- Open Graph -->
@@ -32,9 +34,11 @@ const resolvedOgImage = new URL(metaImage, SITE.url).href;
 <meta property="og:description" content={metaDescription} />
 <meta property="og:image" content={resolvedOgImage} />
 <meta property="og:site_name" content={SITE.name} />
+<meta property="og:locale" content="en_US" />
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content={SITE.twitter} />
 <meta name="twitter:title" content={pageTitle} />
 <meta name="twitter:description" content={metaDescription} />
 <meta name="twitter:image" content={resolvedOgImage} />
