@@ -100,14 +100,4 @@ import { SITE, NAV } from '../../consts';
     iconClose!.classList.toggle('hidden', isOpen);
     menuBtn.setAttribute('aria-expanded', String(isOpen));
   });
-
-  // Theme toggle — document-level delegation, survives Astro hydration + works on touch/mobile
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    const btn = target.closest('#theme-toggle');
-    if (!btn) return;
-    const html = document.documentElement;
-    const isDark = html.classList.toggle('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  });
 </script>

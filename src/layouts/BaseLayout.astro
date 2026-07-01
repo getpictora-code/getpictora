@@ -30,7 +30,16 @@ export interface Props {
         }
       })();
     </script>
-    <!-- System fonts used — no external font downloads needed -->
+    <!-- Theme toggle — inline to bypass Astro bundling, works on all touch/mobile devices -->
+    <script is:inline>
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('#theme-toggle');
+        if (!btn) return;
+        var html = document.documentElement;
+        var isDark = html.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      });
+    </script>
     <!-- Prevent layout shifts: set explicit height for all img/video before load -->
     <style>
       img:not([width]):not([height]) { aspect-ratio: attr(width) attr(height); }
