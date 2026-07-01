@@ -246,7 +246,7 @@ const formatLabels = acceptFormats
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
         });
       } catch (err: any) {
         spinner.classList.add('hidden');
