@@ -114,20 +114,20 @@ const formatLabels = acceptFormats
         <p class="file-size text-xs text-text-tertiary mt-0.5"></p>
       </div>
       <div class="file-status flex flex-shrink-0 items-center gap-2">
-        <span class="file-spinner hidden">
+        <span class="file-spinner" style="display:none">
           <svg class="h-5 w-5 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
         </span>
-        <span class="file-done hidden text-accent">
+        <span class="file-done" style="display:none; color:var(--tw-accent)">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         </span>
-        <span class="file-error hidden text-red-500 text-xs font-medium"></span>
+        <span class="file-error" style="display:none; color:#ef4444; font-size:12px; font-weight:500"></span>
       </div>
       <button class="file-download hidden flex-shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white animate-soft hover:bg-accent-hover">
         <span class="dl-text">Download</span>
-        <svg class="dl-spinner hidden animate-spin h-3.5 w-3.5 ml-1.5" fill="none" viewBox="0 0 24 24">
+        <svg class="dl-spinner animate-spin h-3.5 w-3.5 ml-1.5" style="display:none" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
@@ -136,7 +136,7 @@ const formatLabels = acceptFormats
   </template>
 
   <!-- Toast notification container -->
-  <div id="toast" class="fixed bottom-5 right-5 bg-accent text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none"></div>
+  <div id="toast" style="display:none; position:fixed; bottom:20px; right:20px; padding:12px 16px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 10px 25px rgba(0,0,0,0.15); z-index:9999; pointer-events:none; transition:opacity 0.3s, transform 0.3s;"></div>
 </div>
 
 <script>
@@ -239,17 +239,17 @@ const formatLabels = acceptFormats
       reader.readAsDataURL(file);
 
       try {
-        spinner.classList.remove('hidden');
+        spinner.style.display = '';
 
         const outputFile = await convertImage(file, format, label);
 
-        spinner.classList.add('hidden');
-        done.classList.remove('hidden');
-        downloadBtn.classList.remove('hidden');
+        spinner.style.display = 'none';
+        done.style.display = '';
+        downloadBtn.style.display = '';
 
         downloadBtn.addEventListener('click', () => {
           dlText.textContent = 'Processing...';
-          dlSpinner.classList.remove('hidden');
+          dlSpinner.style.display = '';
           setTimeout(() => {
             const url = URL.createObjectURL(outputFile);
             const a = document.createElement('a');
@@ -259,14 +259,14 @@ const formatLabels = acceptFormats
             a.click();
             document.body.removeChild(a);
             dlText.textContent = 'Download';
-            dlSpinner.classList.add('hidden');
+            dlSpinner.style.display = 'none';
             showToast('Images downloaded successfully! 🎉', 'info');
             setTimeout(() => URL.revokeObjectURL(url), 10000);
           }, 50);
         });
       } catch (err: any) {
-        spinner.classList.add('hidden');
-        errorEl.classList.remove('hidden');
+        spinner.style.display = 'none';
+        errorEl.style.display = '';
         errorEl.textContent = err.message || 'Conversion failed';
       }
     }
@@ -336,25 +336,48 @@ const formatLabels = acceptFormats
   }
 
   function showToast(msg: string, type: 'error' | 'info') {
-    const toast = document.getElementById('toast');
-    if (toast) {
-      toast.innerText = msg;
-      toast.className = `fixed bottom-5 right-5 px-4 py-3 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50 ${
-        type === 'error' ? 'bg-red-500 text-white' : 'bg-accent text-white'
-      }`;
-      setTimeout(() => {
-        toast.classList.add('translate-y-20', 'opacity-0');
-      }, 3000);
-      return;
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      Object.assign(toast.style, {
+        display: 'none',
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+        zIndex: '9999',
+        pointerEvents: 'none',
+        transition: 'opacity 0.3s, transform 0.3s',
+      });
+      document.body.appendChild(toast);
     }
-    // Fallback: create dynamic toast
-    const t = document.createElement('div');
-    t.className = `fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-lg animate-soft ${
-      type === 'error' ? 'bg-red-500 text-white' : 'bg-surface-card border border-border-primary text-text-primary'
-    }`;
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+
+    // Set colors based on type
+    const isError = type === 'error';
+    toast.style.background = isError ? '#ef4444' : 'var(--tw-accent, #007aff)';
+    toast.style.color = '#ffffff';
+    toast.textContent = msg;
+
+    // Show: slide up + fade in
+    toast.style.display = '';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+
+    // Hide after 3s
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(20px)';
+      setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 3000);
   }
 
   // Auto-init all converter instances
