@@ -592,7 +592,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+    // Delay revocation — browser needs the URL alive during download initiation
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
   function downloadBlobUrl(url: string, filename: string) {
     const a = document.createElement('a');
