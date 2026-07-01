@@ -50,6 +50,7 @@ import { SITE, NAV } from '../../consts';
   const iconOpen = document.getElementById('mobile-menu-icon-open');
   const iconClose = document.getElementById('mobile-menu-icon-close');
   menuBtn?.addEventListener('click', () => {
+    if (!menu || !iconOpen || !iconClose) return;
     const isOpen = menu.classList.toggle('hidden');
     iconOpen.classList.toggle('hidden', !isOpen);
     iconClose.classList.toggle('hidden', isOpen);
