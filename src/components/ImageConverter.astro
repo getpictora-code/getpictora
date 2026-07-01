@@ -130,6 +130,9 @@ const formatLabels = acceptFormats
       </button>
     </div>
   </template>
+
+  <!-- Toast notification container -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-accent text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none"></div>
 </div>
 
 <script>
@@ -246,6 +249,7 @@ const formatLabels = acceptFormats
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          showToast('Images downloaded successfully! 🎉', 'info');
           setTimeout(() => URL.revokeObjectURL(url), 10000);
         });
       } catch (err: any) {
@@ -320,16 +324,25 @@ const formatLabels = acceptFormats
   }
 
   function showToast(msg: string, type: 'error' | 'info') {
-    const toast = document.createElement('div');
-    toast.className = `fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-lg animate-soft ${
+    const toast = document.getElementById('toast');
+    if (toast) {
+      toast.innerText = msg;
+      toast.className = `fixed bottom-5 right-5 px-4 py-3 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50 ${
+        type === 'error' ? 'bg-red-500 text-white' : 'bg-accent text-white'
+      }`;
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+      return;
+    }
+    // Fallback: create dynamic toast
+    const t = document.createElement('div');
+    t.className = `fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-lg animate-soft ${
       type === 'error' ? 'bg-red-500 text-white' : 'bg-surface-card border border-border-primary text-text-primary'
     }`;
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
   }
 
   // Auto-init all converter instances
