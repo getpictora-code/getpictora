@@ -126,7 +126,11 @@ const formatLabels = acceptFormats
         <span class="file-error hidden text-red-500 text-xs font-medium"></span>
       </div>
       <button class="file-download hidden flex-shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white animate-soft hover:bg-accent-hover">
-        Download
+        <span class="dl-text">Download</span>
+        <svg class="dl-spinner hidden animate-spin h-3.5 w-3.5 ml-1.5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
       </button>
     </div>
   </template>
@@ -220,6 +224,8 @@ const formatLabels = acceptFormats
       const done = clone.querySelector<HTMLElement>('.file-done')!;
       const errorEl = clone.querySelector<HTMLElement>('.file-error')!;
       const downloadBtn = clone.querySelector<HTMLButtonElement>('.file-download')!;
+      const dlText = clone.querySelector<HTMLElement>('.dl-text')!;
+      const dlSpinner = clone.querySelector<HTMLElement>('.dl-spinner')!;
 
       nameEl.textContent = file.name;
       sizeEl.textContent = formatBytes(file.size);
@@ -242,15 +248,21 @@ const formatLabels = acceptFormats
         downloadBtn.classList.remove('hidden');
 
         downloadBtn.addEventListener('click', () => {
-          const url = URL.createObjectURL(outputFile);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = outputFile.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          showToast('Images downloaded successfully! 🎉', 'info');
-          setTimeout(() => URL.revokeObjectURL(url), 10000);
+          dlText.textContent = 'Processing...';
+          dlSpinner.classList.remove('hidden');
+          setTimeout(() => {
+            const url = URL.createObjectURL(outputFile);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = outputFile.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            dlText.textContent = 'Download';
+            dlSpinner.classList.add('hidden');
+            showToast('Images downloaded successfully! 🎉', 'info');
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          }, 50);
         });
       } catch (err: any) {
         spinner.classList.add('hidden');
