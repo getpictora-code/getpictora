@@ -101,18 +101,13 @@ import { SITE, NAV } from '../../consts';
     menuBtn.setAttribute('aria-expanded', String(isOpen));
   });
 
-  // Theme toggle logic — handles both click and touch
+  // Theme toggle — uses click + touch-action CSS for instant mobile response
   const toggle = document.getElementById('theme-toggle');
   if (toggle) {
-    const toggleTheme = () => {
+    toggle.addEventListener('click', () => {
       const html = document.documentElement;
       const isDark = html.classList.toggle('dark');
       localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    };
-    toggle.addEventListener('click', toggleTheme);
-    toggle.addEventListener('touchend', (e: Event) => {
-      e.preventDefault();
-      toggleTheme();
     });
   }
 </script>
