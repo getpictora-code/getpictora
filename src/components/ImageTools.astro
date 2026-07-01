@@ -384,7 +384,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       // Auto-process immediately — no manual "Convert" step
       processFile(file, activeTool).then(result => {
         const newUrl = URL.createObjectURL(result.blob);
+        // Store processed blob data on the card for reliable downloads
+        const prevUrl = card.getAttribute('data-blob-url');
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
         card.setAttribute('data-blob-url', newUrl);
+        card.setAttribute('data-filename', result.filename);
         newSizeEl.textContent = formatBytes(result.blob.size);
 
         // Render canvas preview
@@ -414,7 +418,19 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         idleSpan.classList.add('hidden');
         readySpan.classList.remove('hidden');
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
-        dlBtn.addEventListener('click', () => downloadBlob(result.blob, result.filename));
+      });
+
+      // Single reliable download handler — reads latest processed blob from card data
+      dlBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const blobUrl = card.getAttribute('data-blob-url');
+        const filename = card.getAttribute('data-filename');
+        if (blobUrl && filename) {
+          downloadBlobUrl(blobUrl, filename);
+        } else {
+          // Fallback: re-process if data not yet available
+          processFile(file, activeTool).then(r => downloadBlob(r.blob, r.filename));
+        }
       });
 
       previewGrid.appendChild(clone);
@@ -578,6 +594,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
+  function downloadBlobUrl(url: string, filename: string) {
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+  }
 
   // --- Tool switching ---
   const tabs = document.querySelectorAll<HTMLElement>('.tools-tab');
@@ -646,6 +666,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const prev = card.getAttribute('data-blob-url');
         if (prev) URL.revokeObjectURL(prev);
         card.setAttribute('data-blob-url', newUrl);
+        card.setAttribute('data-filename', result.filename);
         newSizeEl.textContent = formatBytes(result.blob.size);
 
         const previewImg = new Image();
