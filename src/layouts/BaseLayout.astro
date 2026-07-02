@@ -101,11 +101,34 @@ export interface Props {
 
 <!-- Deferred non-critical CSS for lazy-loaded images -->
 <script>
-  // Add lazy loading to all images that don't already have it
+  // Lazy load images
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('img:not([loading])').forEach(img => {
       img.setAttribute('loading', 'lazy');
       img.setAttribute('decoding', 'async');
     });
   });
+
+  // Scroll-reveal animations
+  (function() {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale').forEach(function(el) {
+        observer.observe(el);
+      });
+    });
+    document.addEventListener('astro:page-load', function() {
+      document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale').forEach(function(el) {
+        observer.observe(el);
+      });
+    });
+  })();
 </script>
