@@ -436,16 +436,17 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
       });
 
-      // Single reliable download handler — reads latest processed blob from card data
+      // Download handler — creates anchor directly, no helper abstractions
       dlBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const blobUrl = card.getAttribute('data-blob-url');
         const filename = card.getAttribute('data-filename');
         if (blobUrl && filename) {
-          downloadBlobUrl(blobUrl, filename);
-        } else {
-          // Fallback: re-process if data not yet available
-          processFile(file, activeTool).then(r => downloadBlob(r.blob, r.filename));
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
         }
       });
 
@@ -453,15 +454,23 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
   }
 
-  async function processAndDownloadAll() {
-    const results = await Promise.all(files.map(f => processFile(f, activeTool)));
-    if (results.length === 1) {
-      downloadBlob(results[0].blob, results[0].filename);
-    } else {
-      // Download as individual files with a small delay
-      results.forEach((r, i) => setTimeout(() => downloadBlob(r.blob, r.filename), i * 200));
-    }
-    toast(`Processing ${results.length} file${results.length!==1?'s':''} complete!`, 'info');
+  // Download All — uses already-processed blob URLs from preview cards, no re-processing
+  function processAndDownloadAll() {
+    const cards = previewGrid.querySelectorAll('.preview-card');
+    if (cards.length === 0) return;
+    cards.forEach((card, i) => {
+      const blobUrl = card.getAttribute('data-blob-url');
+      const filename = card.getAttribute('data-filename');
+      if (blobUrl && filename) {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+        }, i * 300);
+      }
+    });
   }
 
   // --- Core processing ---
@@ -604,6 +613,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     return canvas;
   }
 
+  // Fallback download from a raw Blob (used by reprocessPreviews fallback path only)
   function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -612,13 +622,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     document.body.appendChild(a);
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
-  }
-  function downloadBlobUrl(url: string, filename: string) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
   }
 
   // --- Tool switching ---
