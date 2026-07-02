@@ -609,22 +609,16 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
-    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    // Keep anchor in DOM so Chrome's download manager can finalize the stream.
-    // Remove after 5s, revoke blob URL after 60s.
-    setTimeout(() => document.body.removeChild(a), 5000);
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
   function downloadBlobUrl(url: string, filename: string) {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
-    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => document.body.removeChild(a), 5000);
   }
 
   // --- Tool switching ---
