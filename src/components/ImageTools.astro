@@ -350,6 +350,13 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   function resetAll() {
+    // Revoke all blob URLs before clearing DOM to prevent memory leaks
+    previewGrid.querySelectorAll('.preview-card').forEach(card => {
+      const orig = card.getAttribute('data-orig-url');
+      const blob = card.getAttribute('data-blob-url');
+      if (orig) URL.revokeObjectURL(orig);
+      if (blob) URL.revokeObjectURL(blob);
+    });
     files = [];
     previewGrid.innerHTML = '';
     dropZone.classList.remove('hidden');
@@ -359,6 +366,13 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
   // --- Preview rendering ---
   function updatePreviews() {
+    // Revoke all old blob URLs before clearing to prevent memory leaks
+    previewGrid.querySelectorAll('.preview-card').forEach(card => {
+      const orig = card.getAttribute('data-orig-url');
+      const blob = card.getAttribute('data-blob-url');
+      if (orig) URL.revokeObjectURL(orig);
+      if (blob) URL.revokeObjectURL(blob);
+    });
     previewGrid.innerHTML = '';
     fileCount.textContent = `${files.length} file${files.length!==1?'s':''} selected`;
     previewCount.textContent = `${files.length} image${files.length!==1?'s':''} loaded`;
@@ -377,6 +391,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
       const url = URL.createObjectURL(file);
       origImg.src = url;
+      // Store original blob URL on card so we can revoke it on reset/reprocess
+      card.setAttribute('data-orig-url', url);
       nameEl.textContent = file.name;
       origSizeEl.textContent = formatBytes(file.size);
       newSizeEl.textContent = '...';
@@ -596,7 +612,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
   function downloadBlobUrl(url: string, filename: string) {
     const a = document.createElement('a');
