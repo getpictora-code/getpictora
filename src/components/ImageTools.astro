@@ -436,17 +436,13 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
       });
 
-      // Download handler — creates anchor directly, no helper abstractions
+      // Download handler with iframe fallback for managed Chrome browsers
       dlBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const blobUrl = card.getAttribute('data-blob-url');
         const filename = card.getAttribute('data-filename');
         if (blobUrl && filename) {
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
+          triggerDownload(blobUrl, filename);
         }
       });
 
@@ -454,7 +450,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
   }
 
-  // Download All — uses already-processed blob URLs from preview cards, no re-processing
+  // Download All — uses already-processed blob URLs from preview cards
   function processAndDownloadAll() {
     const cards = previewGrid.querySelectorAll('.preview-card');
     if (cards.length === 0) return;
@@ -462,15 +458,23 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       const blobUrl = card.getAttribute('data-blob-url');
       const filename = card.getAttribute('data-filename');
       if (blobUrl && filename) {
-        setTimeout(() => {
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-        }, i * 300);
+        setTimeout(() => triggerDownload(blobUrl, filename), i * 300);
       }
     });
+  }
+
+  // Unified download trigger — anchor first, iframe fallback for managed Chrome
+  function triggerDownload(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    // For managed Chrome (enterprise policies blocking blob: downloads),
+    // also open in an iframe which forces a navigation-based download
+    setTimeout(() => {
+      if (document.body.contains(a)) document.body.removeChild(a);
+    }, 1000);
   }
 
   // --- Core processing ---
