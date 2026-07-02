@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Class-based dark mode — toggled via .dark on <html> */
+@variant dark (&:where(.dark, .dark *));
+
 /* ============================================
    ImageTools.site — Premium Design System
    Inspired by Apple, Linear, Vercel, Raycast, Arc

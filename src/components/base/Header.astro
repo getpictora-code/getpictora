@@ -57,26 +57,3 @@ import { SITE, NAV } from '../../consts';
     menuBtn.setAttribute('aria-expanded', String(isOpen));
   });
 </script>
-
-<script is:inline>
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest('#theme-toggle');
-    if (btn) {
-      var element = document.documentElement;
-      element.classList.toggle('dark');
-      var isDark = element.classList.contains('dark');
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    }
-  });
-
-  document.addEventListener('touchend', function(e) {
-    var btn = e.target.closest('#theme-toggle');
-    if (btn) {
-      e.preventDefault();
-      var element = document.documentElement;
-      element.classList.toggle('dark');
-      var isDark = element.classList.contains('dark');
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    }
-  });
-</script>
