@@ -19,6 +19,7 @@ export default defineConfig({
         output: {
           manualChunks(id) {
             if (id.includes('node_modules/jspdf')) return 'jspdf';
+            if (id.includes('node_modules/pdfjs-dist')) return 'pdfjs';
           },
         },
       },
