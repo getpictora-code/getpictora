@@ -956,7 +956,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   async function getPdfJs() {
     if (!_pdfjs) {
       const m = await import('pdfjs-dist');
-      m.GlobalWorkerOptions.workerSrc = '';
+      // Use CDN worker for reliable cross-browser PDF page rendering
+      m.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs';
       _pdfjs = m;
     }
     return _pdfjs;
@@ -972,7 +973,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
       const arrayBuf = await file.arrayBuffer();
       if (onProgress) onProgress('Parsing document...');
-      const pdfDoc = await pdfjs.getDocument({ data: arrayBuf, useWorkerFetch: false }).promise;
+      const pdfDoc = await pdfjs.getDocument({
+        data: arrayBuf,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+      }).promise;
       const totalPages = pdfDoc.numPages;
 
     const scale = parseInt((document.getElementById('pdfcomp-scale') as HTMLInputElement).value) / 100 || 0.7;
@@ -1014,7 +1019,9 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const outBlob = doc.output('blob');
     return { blob: outBlob, filename: `${baseName}-compressed.pdf` };
     } catch (e) {
-      console.warn('PDF compression failed, returning original file:', e);
+      console.error('PDF compression failed:', e);
+      if (onProgress) onProgress('Compression failed — saving original');
+      toast('PDF compression engine failed. Downloading original file.', 'error');
       if (onProgress) onProgress('Falling back to original...');
       return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf` };
     }
