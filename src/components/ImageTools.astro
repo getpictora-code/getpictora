@@ -424,7 +424,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         previewImg.onload = () => {
           canvas.width = previewImg.naturalWidth;
           canvas.height = previewImg.naturalHeight;
-          canvas.getContext('2d')!.drawImage(previewImg, 0, 0);
+          const pctx = canvas.getContext('2d')!;
+          pctx.imageSmoothingEnabled = true;
+          pctx.imageSmoothingQuality = 'high';
+          pctx.drawImage(previewImg, 0, 0);
         };
         previewImg.src = newUrl;
 
@@ -506,10 +509,9 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }
       case 'compress': {
         const quality = parseInt((document.getElementById('compress-slider') as HTMLInputElement).value) / 100;
-        canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d')!.drawImage(img, 0, 0);
+        const cc = createCanvas(img.naturalWidth, img.naturalHeight);
+        canvas = cc.canvas;
+        cc.ctx.drawImage(img, 0, 0);
         return new Promise(resolve => {
           // Always compress to JPEG so the quality slider visibly reduces file size
           // (PNG is lossless and ignores quality, making the slider appear broken)
@@ -522,11 +524,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       case 'convert': {
         const fmt = (document.getElementById('convert-format') as HTMLSelectElement).value;
         const q = parseInt((document.getElementById('convert-quality') as HTMLInputElement).value) / 100;
-        canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d')!.drawImage(img, 0, 0);
-        return convertToFormat(canvas, file.name, fmt, q);
+        const cc = createCanvas(img.naturalWidth, img.naturalHeight);
+        canvas = cc.canvas;
+        cc.ctx.drawImage(img, 0, 0);
+        return convertToFormat(canvas, file.name, fmt, q, img.naturalWidth, img.naturalHeight);
       }
       case 'crop': {
         const x = parseInt((document.getElementById('crop-x') as HTMLInputElement).value) || 0;
@@ -534,9 +535,9 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const cw = parseInt((document.getElementById('crop-w') as HTMLInputElement).value) || 400;
         const ch = parseInt((document.getElementById('crop-h') as HTMLInputElement).value) || 400;
         canvas = document.createElement('canvas');
-        canvas.width = cw;
-        canvas.height = ch;
-        canvas.getContext('2d')!.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
+        const cc3 = createCanvas(cw, ch);
+        canvas = cc3.canvas;
+        cc3.ctx.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
         break;
       }
       case 'rotate': {
@@ -551,15 +552,18 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         canvas = applyFilter(img, filterId);
         break;
       }
-      default:
-        canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d')!.drawImage(img, 0, 0);
+      default: {
+        const cc2 = createCanvas(img.naturalWidth, img.naturalHeight);
+        canvas = cc2.canvas;
+        cc2.ctx.drawImage(img, 0, 0);
+      }
     }
 
+    // Capture canvas reference before async toBlob to prevent GC
+    const outCanvas = canvas;
+    const outType = outputType;
     return new Promise(resolve => {
-      canvas.toBlob(b => resolve({ blob: b!, filename: file.name }), outputType, 0.92);
+      outCanvas.toBlob(b => resolve({ blob: b!, filename: file.name }), outType, 0.92);
     });
   }
 
@@ -573,17 +577,29 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
   }
 
-  function resizeImage(img: HTMLImageElement, w: number, h: number, keepAspect: boolean): HTMLCanvasElement {
+  // Create a canvas with maximum-quality smoothing enabled
+  function createCanvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
     const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    return { canvas, ctx };
+  }
+
+  function resizeImage(img: HTMLImageElement, w: number, h: number, keepAspect: boolean): HTMLCanvasElement {
+    let cw: number, ch: number;
     if (keepAspect) {
       const ratio = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-      canvas.width = Math.round(img.naturalWidth * ratio);
-      canvas.height = Math.round(img.naturalHeight * ratio);
+      cw = Math.round(img.naturalWidth * ratio);
+      ch = Math.round(img.naturalHeight * ratio);
     } else {
-      canvas.width = w;
-      canvas.height = h;
+      cw = w;
+      ch = h;
     }
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const { canvas, ctx } = createCanvas(cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
     return canvas;
   }
 
@@ -592,10 +608,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const sin = Math.abs(Math.sin(rad)), cos = Math.abs(Math.cos(rad));
     const cw = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
     const ch = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
-    const canvas = document.createElement('canvas');
-    canvas.width = cw;
-    canvas.height = ch;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = createCanvas(cw, ch);
     ctx.translate(cw/2, ch/2);
     ctx.rotate(rad);
     ctx.drawImage(img, -img.naturalWidth/2, -img.naturalHeight/2);
@@ -603,10 +616,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   function applyFilter(img: HTMLImageElement, filterId: string): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d')!;
+    const { canvas, ctx } = createCanvas(img.naturalWidth, img.naturalHeight);
     ctx.drawImage(img, 0, 0);
     if (filterId === 'none') return canvas;
 
@@ -646,39 +656,51 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     'text/html':'html',
   };
 
-  async function convertToFormat(canvas: HTMLCanvasElement, origName: string, mime: string, quality: number): Promise<{blob:Blob;filename:string}> {
+  async function convertToFormat(canvas: HTMLCanvasElement, origName: string, mime: string, quality: number, origW: number, origH: number): Promise<{blob:Blob;filename:string}> {
     const ext = FORMAT_EXT[mime] || 'bin';
     const baseName = origName.replace(/\.[^.]+$/, '');
+    const w = canvas.width;
+    const h = canvas.height;
 
     switch (mime) {
       case 'image/jpeg': case 'image/png': case 'image/webp':
         return new Promise(resolve => canvas.toBlob(b => resolve({blob:b!,filename:`${baseName}.${ext}`}), mime, quality));
 
       case 'image/svg+xml': {
-        const dataUrl = canvas.toDataURL('image/png');
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">\n  <image width="${canvas.width}" height="${canvas.height}" xlink:href="${dataUrl}"/>\n</svg>`;
+        // Lossless PNG at maximum quality for the embedded vector wrapper
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">\n  <image width="${w}" height="${h}" image-rendering="auto" xlink:href="${dataUrl}"/>\n</svg>`;
         return { blob: new Blob([svg], {type:'image/svg+xml'}), filename: `${baseName}.svg` };
       }
 
       case 'application/pdf': {
+        // Use lossless PNG when quality is 100%, otherwise JPEG at requested quality
         const { jsPDF } = await getJsPDF();
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const doc = new jsPDF({orientation: canvas.width>canvas.height?'landscape':'portrait', unit:'px', format:[canvas.width,canvas.height]});
-        doc.addImage(dataUrl, 'JPEG', 0, 0, canvas.width, canvas.height, undefined, 'FAST');
+        const usePng = quality >= 1.0;
+        const dataUrl = canvas.toDataURL(usePng ? 'image/png' : 'image/jpeg', quality);
+        const doc = new jsPDF({
+          orientation: w > h ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [w, h],
+          hotfixes: ['px_scaling'],
+        });
+        doc.addImage(dataUrl, usePng ? 'PNG' : 'JPEG', 0, 0, w, h, undefined, 'NONE');
         return { blob: doc.output('blob'), filename: `${baseName}.pdf` };
       }
 
       case 'text/html': {
-        const dataUrl = canvas.toDataURL('image/png');
-        const html = `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"><title>${baseName}</title>\n<style>body{display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}img{max-width:100%;height:auto;box-shadow:0 8px 30px rgba(0,0,0,0.12);border-radius:8px}</style>\n</head>\n<body><img src="${dataUrl}" alt="${baseName}"></body>\n</html>`;
+        // Lossless PNG for standalone web page
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const html = `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"><title>${baseName}</title>\n<style>body{display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}img{max-width:100%;height:auto;box-shadow:0 8px 30px rgba(0,0,0,0.12);border-radius:8px}</style>\n</head>\n<body><img src="${dataUrl}" alt="${baseName}" width="${w}" height="${h}"></body>\n</html>`;
         return { blob: new Blob([html], {type:'text/html'}), filename: `${baseName}.html` };
       }
 
-      // Office Open XML via minimal ZIP container
+      // Office Open XML via minimal ZIP container — full resolution PNG inside
       case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
-        const dataUrl = canvas.toDataURL('image/png');
-        const imgName = 'image1.png';
-        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${Math.round(canvas.width*9525)}" cy="${Math.round(canvas.height*9525)}"/><wp:docPr id="1" name="Picture 1"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="image1"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(canvas.width*9525)}" cy="${Math.round(canvas.height*9525)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:body></w:document>`;
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const emuW = Math.round(w * 9525);
+        const emuH = Math.round(h * 9525);
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="1" name="Picture 1"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="image1"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:body></w:document>`;
         const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
         const relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>';
         const docRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
@@ -694,10 +716,14 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }
 
       case 'application/vnd.openxmlformats-officedocument.presentationml.presentation': {
-        const dataUrl = canvas.toDataURL('image/png');
-        const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:sp><p:nvSpPr><p:cNvPr id="1" name="Image"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(canvas.width*12700)}" cy="${Math.round(canvas.height*12700)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill></p:sp></p:cSld></p:sld>`;
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const emuW = Math.round(w * 12700);
+        const emuH = Math.round(h * 12700);
+        const slideW = Math.max(emuW, 12192000);
+        const slideH = Math.max(emuH, 6858000);
+        const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:sp><p:nvSpPr><p:cNvPr id="1" name="Image"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill></p:sp></p:cSld></p:sld>`;
         const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>';
-        const presXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>';
+        const presXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="${slideW}" cy="${slideH}"/></p:presentation>`;
         const slideRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>';
         const presRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>';
         const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>';
@@ -715,8 +741,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }
 
       case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
-        const dataUrl = canvas.toDataURL('image/png');
-        const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData><row r="1"><c r="A1"><f>IMAGE("${dataUrl}")</f><v>0</v></c></row></sheetData></worksheet>`;
+        const dataUrl = canvas.toDataURL('image/png', 1.0);
+        const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData><row r="1" customHeight="true" ht="${Math.round(h * 0.75)}"><c r="A1"><f>IMAGE("${dataUrl}")</f><v>0</v></c></row></sheetData></worksheet>`;
         const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>';
         const wbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>';
         const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
@@ -732,7 +758,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }
 
       default:
-        return new Promise(resolve => canvas.toBlob(b => resolve({blob:b!,filename:`${baseName}.png`}), 'image/png'));
+        return new Promise(resolve => canvas.toBlob(b => resolve({blob:b!,filename:`${baseName}.png`}), 'image/png', 1.0));
     }
   }
 
@@ -915,14 +941,17 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         card.setAttribute('data-filename', result.filename);
         newSizeEl.textContent = formatBytes(result.blob.size);
 
-        const previewImg = new Image();
-        previewImg.onload = () => {
-          canvas.width = previewImg.naturalWidth;
-          canvas.height = previewImg.naturalHeight;
-          canvas.getContext('2d')!.drawImage(previewImg, 0, 0);
+        const rpv = new Image();
+        rpv.onload = () => {
+          canvas.width = rpv.naturalWidth;
+          canvas.height = rpv.naturalHeight;
+          const rctx = canvas.getContext('2d')!;
+          rctx.imageSmoothingEnabled = true;
+          rctx.imageSmoothingQuality = 'high';
+          rctx.drawImage(rpv, 0, 0);
           canvasWrap.classList.remove('preview-loading');
         };
-        previewImg.src = newUrl;
+        rpv.src = newUrl;
 
         // Transition to ready
         idleSpan.classList.add('hidden');
