@@ -454,15 +454,14 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const spinnerSvg = idleSpan.querySelector('svg');
         idleSpan.innerHTML = (spinnerSvg ? spinnerSvg.outerHTML : '') + ' Initializing...';
       }
-      // Atomic processing ID to prevent stale results from overwriting newer ones
-      const processId = Date.now() + Math.random();
-      card.setAttribute('data-process-id', String(processId));
+      // Atomic processing counter to prevent stale results
+      let procCounter = parseInt(card.getAttribute('data-process-id') || '0') + 1;
+      card.setAttribute('data-process-id', String(procCounter));
       processFile(file, activeTool, isPdf ? (msg: string) => {
         if (msg === 'Complete!') return; // finally block signal — .then() handles the transition
         idleSpan.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ${msg}`;
       } : undefined).then(result => {
-        // Discard stale results if a newer processing cycle has started
-        if (card.getAttribute('data-process-id') !== String(processId)) return;
+        if (parseInt(card.getAttribute('data-process-id') || '0') !== procCounter) return;
         const newUrl = URL.createObjectURL(result.blob);
         // Store processed blob data on the card for reliable downloads
         const prevUrl = card.getAttribute('data-blob-url');
@@ -1164,12 +1163,12 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       idleSpan.classList.remove('hidden');
       dlBtn.className = dlBtn.className.replace('bg-accent text-white hover:bg-accent-hover hover:shadow-sm', 'bg-accent-soft text-accent');
 
-      const rProcessId = Date.now() + Math.random();
-      card.setAttribute('data-process-id', String(rProcessId));
+      const rProcCounter = parseInt(card.getAttribute('data-process-id') || '0') + 1;
+      card.setAttribute('data-process-id', String(rProcCounter));
 
       processFile(file, activeTool).then(result => {
         // Discard stale results
-        if (card.getAttribute('data-process-id') !== String(rProcessId)) return;
+        if (parseInt(card.getAttribute('data-process-id') || '0') !== rProcCounter) return;
         const newUrl = URL.createObjectURL(result.blob);
         const prev = card.getAttribute('data-blob-url');
         if (prev) URL.revokeObjectURL(prev);
