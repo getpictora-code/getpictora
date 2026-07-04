@@ -68,18 +68,26 @@ const initialTool = Astro.props.initialTool ?? 'resize';
          TOOL SELECTOR TABS
          ========================================== -->
     <div role="tablist" aria-label="Image editing tools" class="flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto">
-      {['resize','compress','convert','crop','rotate','filters','pdfcompress'].map((tool, i) => (
+      {[
+        { id: 'resize', label: 'Resize' },
+        { id: 'compress', label: 'Compress' },
+        { id: 'convert', label: 'Convert' },
+        { id: 'crop', label: 'Crop' },
+        { id: 'rotate', label: 'Rotate' },
+        { id: 'filters', label: 'Filters' },
+        { id: 'pdfcompress', label: 'PDF Compress' },
+      ].map((tool, i) => (
         <button
           role="tab"
-          data-tool={tool}
+          data-tool={tool.id}
           aria-selected={i === 0 ? 'true' : 'false'}
-          aria-label={`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool`}
+          aria-label={`${tool.label} tool`}
           tabindex={i === 0 ? 0 : -1}
           class={`tools-tab flex-shrink-0 min-w-[68px] sm:min-w-[80px] sm:flex-1 rounded-xl px-2.5 py-2.5 sm:px-3 text-[11px] sm:text-xs font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-accent ${
             i === 0 ? 'bg-surface-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'
           }`}
         >
-          {tool.charAt(0).toUpperCase() + tool.slice(1)}
+          {tool.label}
         </button>
       ))}
     </div>
