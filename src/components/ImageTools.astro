@@ -501,6 +501,27 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         idleSpan.classList.add('hidden');
         readySpan.classList.remove('hidden');
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
+      }).catch(err => {
+        console.error('Processing failed:', err);
+        newSizeEl.textContent = '⚠ Error';
+        canvas.width = 200; canvas.height = 200;
+        const pctx = canvas.getContext('2d')!;
+        pctx.fillStyle = '#fef2f2'; pctx.fillRect(0, 0, 200, 200);
+        pctx.fillStyle = '#dc2626'; pctx.font = 'bold 12px system-ui';
+        pctx.textAlign = 'center';
+        pctx.fillText('⚠ Processing failed', 100, 90);
+        pctx.fillStyle = '#991b1b'; pctx.font = '10px system-ui';
+        pctx.fillText('Original file available', 100, 112);
+        // Fallback: download original file
+        const fallbackUrl = URL.createObjectURL(file);
+        card.setAttribute('data-blob-url', fallbackUrl);
+        card.setAttribute('data-filename', file.name);
+        savingsEl.classList.remove('hidden');
+        savingsEl.className = 'inline-flex items-center rounded-md bg-red-100 border border-red-200 px-2 py-1 text-[10px] font-bold text-red-700';
+        savingsEl.textContent = 'Original file';
+        idleSpan.classList.add('hidden');
+        readySpan.classList.remove('hidden');
+        dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
       });
 
       // Download handler with iframe fallback for managed Chrome browsers
@@ -932,12 +953,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   async function compressPDF(file: File): Promise<{ blob: Blob; filename: string }> {
-    const pdfjs = await getPdfJs();
-    const { jsPDF } = await getJsPDF();
+    const baseName = file.name.replace(/\.[^.]+$/, '');
 
-    const arrayBuf = await file.arrayBuffer();
-    const pdfDoc = await pdfjs.getDocument({ data: arrayBuf, useWorkerFetch: false }).promise;
-    const totalPages = pdfDoc.numPages;
+    try {
+      const pdfjs = await getPdfJs();
+      const { jsPDF } = await getJsPDF();
+
+      const arrayBuf = await file.arrayBuffer();
+      const pdfDoc = await pdfjs.getDocument({ data: arrayBuf, useWorkerFetch: false }).promise;
+      const totalPages = pdfDoc.numPages;
 
     const scale = parseInt((document.getElementById('pdfcomp-scale') as HTMLInputElement).value) / 100 || 0.7;
     const quality = parseInt((document.getElementById('pdfcomp-quality') as HTMLInputElement).value) / 100 || 0.6;
@@ -972,8 +996,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       doc.addImage(dataUrl, 'JPEG', 0, 0, pageImages[i].w, pageImages[i].h, undefined, 'FAST');
     }
 
-    const baseName = file.name.replace(/\.[^.]+$/, '');
     return { blob: doc.output('blob'), filename: `${baseName}-compressed.pdf` };
+    } catch (e) {
+      console.warn('PDF compression failed, returning original file:', e);
+      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf` };
+    }
   }
 
   // Fallback download from a raw Blob (used by reprocessPreviews fallback path only)
