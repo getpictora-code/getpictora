@@ -953,14 +953,27 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   // ==========================================
 
   let _pdfjs: typeof import('pdfjs-dist') | null = null;
-  async function getPdfJs() {
-    if (!_pdfjs) {
-      const m = await import('pdfjs-dist');
-      // Worker file served from /public directory — always available locally
-      m.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      _pdfjs = m;
+  // Primary: CDN-loaded pdf.js v3.11.174 with matching worker (most reliable)
+  async function getPdfJs(): Promise<any> {
+    const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const win = window as any;
+    if (win.pdfjsLib) {
+      win.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      return win.pdfjsLib;
     }
-    return _pdfjs;
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = PDFJS_CDN;
+      s.onload = () => {
+        const lib = win.pdfjsLib;
+        if (!lib) return reject(new Error('pdfjsLib not found'));
+        lib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+        resolve(lib);
+      };
+      s.onerror = () => reject(new Error('CDN script load failed'));
+      document.head.appendChild(s);
+    });
   }
 
   async function compressPDF(file: File, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string }> {
