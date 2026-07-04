@@ -956,8 +956,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   async function getPdfJs() {
     if (!_pdfjs) {
       const m = await import('pdfjs-dist');
-      // Use CDN worker for reliable cross-browser PDF page rendering
-      m.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs';
+      // Worker file served from /public directory — always available locally
+      m.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       _pdfjs = m;
     }
     return _pdfjs;
