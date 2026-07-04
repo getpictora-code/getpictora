@@ -455,7 +455,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         idleSpan.innerHTML = (spinnerSvg ? spinnerSvg.outerHTML : '') + ' Initializing...';
       }
       processFile(file, activeTool, isPdf ? (msg: string) => {
-        // Live progress update in the button text
+        if (msg === 'Complete!') return; // finally block signal — .then() handles the transition
         idleSpan.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ${msg}`;
       } : undefined).then(result => {
         const newUrl = URL.createObjectURL(result.blob);
@@ -982,8 +982,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
   }
 
-  async function compressPDF(file: File, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string }> {
+  async function compressPDF(file: File, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string; keptOriginal?: boolean }> {
     const baseName = file.name.replace(/\.[^.]+$/, '');
+    let resultBlob: Blob = new Blob([file], { type: pdfMime });
+    let resultName = `${baseName}-compressed.pdf`;
+    let keptOriginal = true;
 
     try {
       if (onProgress) onProgress('Initializing engine...');
@@ -1002,7 +1005,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const scale = parseInt((document.getElementById('pdfcomp-scale') as HTMLInputElement).value) / 100 || 0.7;
     const quality = parseInt((document.getElementById('pdfcomp-quality') as HTMLInputElement).value) / 100 || 0.6;
 
-    // Render all pages to canvases, then assemble into new PDF
     const pageImages: { canvas: HTMLCanvasElement; w: number; h: number }[] = [];
 
     for (let i = 1; i <= totalPages; i++) {
@@ -1012,7 +1014,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       const { canvas, ctx } = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
       await page.render({ canvasContext: ctx, viewport }).promise;
       pageImages.push({ canvas, w: viewport.width, h: viewport.height });
-      // Yield to browser UI thread to prevent "Page Unresponsive"
       await new Promise(r => setTimeout(r, 0));
     }
 
@@ -1039,17 +1040,26 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const outBlob = doc.output('blob') as Blob;
     await new Promise(r => setTimeout(r, 0));
 
-    // Smart safeguard: if compressed is larger, keep the original
-    if (outBlob.size >= file.size) {
-      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf`, keptOriginal: true as const };
+    // Emergency check: if output is empty or broken, keep original
+    if (!outBlob || outBlob.size === 0) {
+      // keep original (already set as default)
+    } else if (outBlob.size < file.size) {
+      resultBlob = outBlob;
+      keptOriginal = false;
     }
-    return { blob: outBlob, filename: `${baseName}-compressed.pdf`, keptOriginal: false as const };
+    // else: compressed >= original, keep original (already default)
+
     } catch (e) {
       console.error('PDF compression failed:', e);
       if (onProgress) onProgress('Compression failed — saving original');
       toast('PDF engine error. Downloading original file.', 'error');
-      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf`, keptOriginal: true as const };
+      // resultBlob already defaults to original
+    } finally {
+      // GUARANTEED: signal UI that processing is complete
+      if (onProgress) onProgress('Complete!');
     }
+
+    return { blob: resultBlob, filename: resultName, keptOriginal };
   }
 
   // Fallback download from a raw Blob (used by reprocessPreviews fallback path only)
