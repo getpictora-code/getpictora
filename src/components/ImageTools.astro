@@ -370,10 +370,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   });
 
   function handleFiles(incoming: File[]) {
+    const isPdfTab = activeTool === 'pdfcompress';
     const valid = incoming.filter(f => {
-      if (f.type === pdfMime) return true; // PDFs handled separately
-      if (!acceptedTypes.includes(f.type)) { toast(`"${f.name}" is not supported`, 'error'); return false; }
-      if (f.size > maxBytes) { toast(`"${f.name}" exceeds limit`, 'error'); return false; }
+      if (f.type === pdfMime) {
+        if (!isPdfTab) { toast(`"${f.name}" is a PDF. Please use the <a href="/compress-pdf" style="text-decoration:underline">PDF Compress</a> tool.`,'error'); return false; }
+        return true;
+      }
+      if (isPdfTab) { toast(`"${f.name}" is not a PDF. Switch to the Compress tab for images.`,'error'); return false; }
+      if (!acceptedTypes.includes(f.type)) { toast(`"${f.name}" is not supported`,'error'); return false; }
+      if (f.size > maxBytes) { toast(`"${f.name}" exceeds limit`,'error'); return false; }
       return true;
     });
     if (valid.length === 0) return;
