@@ -1127,9 +1127,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       const idleSpan = card.querySelector('.preview-dl-idle')!;
       const readySpan = card.querySelector('.preview-dl-ready')!;
 
-      // Show processing state
+      // Show processing state (keep current size visible — don't blank it)
       canvasWrap.classList.add('preview-loading');
-      newSizeEl.textContent = '...';
       readySpan.classList.add('hidden');
       idleSpan.classList.remove('hidden');
       dlBtn.className = dlBtn.className.replace('bg-accent text-white hover:bg-accent-hover hover:shadow-sm', 'bg-accent-soft text-accent');
