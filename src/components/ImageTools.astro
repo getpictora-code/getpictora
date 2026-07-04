@@ -1176,17 +1176,30 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         card.setAttribute('data-filename', result.filename);
         newSizeEl.textContent = formatBytes(result.blob.size);
 
-        const rpv = new Image();
-        rpv.onload = () => {
-          canvas.width = rpv.naturalWidth;
-          canvas.height = rpv.naturalHeight;
-          const rctx = canvas.getContext('2d')!;
-          rctx.imageSmoothingEnabled = true;
-          rctx.imageSmoothingQuality = 'high';
-          rctx.drawImage(rpv, 0, 0);
+        const isPdfReprocess = file.type === pdfMime && activeTool === 'pdfcompress';
+        if (isPdfReprocess) {
+          canvas.width = 200; canvas.height = 200;
+          const rctx2 = canvas.getContext('2d')!;
+          rctx2.fillStyle = '#f0fdf4'; rctx2.fillRect(0, 0, 200, 200);
+          rctx2.fillStyle = '#16a34a'; rctx2.font = 'bold 14px system-ui';
+          rctx2.textAlign = 'center';
+          rctx2.fillText('✓ PDF Compressed', 100, 90);
+          rctx2.fillStyle = '#166534'; rctx2.font = '11px system-ui';
+          rctx2.fillText(formatBytes(result.blob.size), 100, 115);
           canvasWrap.classList.remove('preview-loading');
-        };
-        rpv.src = newUrl;
+        } else {
+          const rpv = new Image();
+          rpv.onload = () => {
+            canvas.width = rpv.naturalWidth;
+            canvas.height = rpv.naturalHeight;
+            const rctx = canvas.getContext('2d')!;
+            rctx.imageSmoothingEnabled = true;
+            rctx.imageSmoothingQuality = 'high';
+            rctx.drawImage(rpv, 0, 0);
+            canvasWrap.classList.remove('preview-loading');
+          };
+          rpv.src = newUrl;
+        }
 
         // Transition to ready
         idleSpan.classList.add('hidden');
@@ -1201,12 +1214,12 @@ const initialTool = Astro.props.initialTool ?? 'resize';
           savingsEl.innerHTML = '<span>Already Optimized</span><span class="font-normal text-blue-600">(0% Saved)</span>';
         } else if (newBytes < origBytes) {
           const pct = Math.round((1 - newBytes / origBytes) * 100);
-          savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-green-100').replace(/border-\w+-\d+/g, 'border-green-200').replace(/text-\w+-\d+/g, 'text-green-700');
-          savingsEl.textContent = `${pct}% smaller`;
+          savingsEl.className = 'inline-flex items-center gap-1 rounded-md bg-green-100 border border-green-200 px-2 py-1 text-[10px] font-bold text-green-700';
+          savingsEl.innerHTML = `<span>${pct}% smaller</span><span class="font-normal text-green-600">(${formatBytes(origBytes)} → ${formatBytes(newBytes)})</span>`;
         } else if (newBytes > origBytes) {
           const pct = Math.round((newBytes / origBytes - 1) * 100);
-          savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-amber-100').replace(/border-\w+-\d+/g, 'border-amber-200').replace(/text-\w+-\d+/g, 'text-amber-700');
-          savingsEl.textContent = `${pct}% larger`;
+          savingsEl.className = 'inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-700';
+          savingsEl.innerHTML = `<span>${pct}% larger</span><span class="font-normal text-amber-600">(${formatBytes(origBytes)} → ${formatBytes(newBytes)})</span>`;
         } else {
           savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-gray-100').replace(/border-\w+-\d+/g, 'border-gray-200').replace(/text-\w+-\d+/g, 'text-gray-600');
           savingsEl.textContent = 'Same size';
