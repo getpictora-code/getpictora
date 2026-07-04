@@ -1006,9 +1006,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       const { canvas, ctx } = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
       await page.render({ canvasContext: ctx, viewport }).promise;
       pageImages.push({ canvas, w: viewport.width, h: viewport.height });
+      // Yield to browser UI thread to prevent "Page Unresponsive"
+      await new Promise(r => setTimeout(r, 0));
     }
 
-    // Build compressed PDF with jsPDF
     if (pageImages.length === 0) throw new Error('No pages in PDF');
 
     if (onProgress) onProgress('Packaging PDF...');
@@ -1030,12 +1031,13 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
     if (onProgress) onProgress('Finalizing...');
     const outBlob = doc.output('blob');
+    // Yield so UI can paint "Download Ready" before returning
+    await new Promise(r => setTimeout(r, 0));
     return { blob: outBlob, filename: `${baseName}-compressed.pdf` };
     } catch (e) {
       console.error('PDF compression failed:', e);
       if (onProgress) onProgress('Compression failed — saving original');
-      toast('PDF compression engine failed. Downloading original file.', 'error');
-      if (onProgress) onProgress('Falling back to original...');
+      toast('PDF engine error. Downloading original file.', 'error');
       return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf` };
     }
   }
