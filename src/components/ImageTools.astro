@@ -493,7 +493,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const origBytes = file.size;
         const newBytes = result.blob.size;
         savingsEl.classList.remove('hidden');
-        if (newBytes < origBytes) {
+        if ((result as any).keptOriginal) {
+          savingsEl.className = 'inline-flex items-center gap-1 rounded-md bg-blue-100 border border-blue-200 px-2 py-1 text-[10px] font-bold text-blue-700';
+          savingsEl.innerHTML = '<span>Already Optimized</span><span class="font-normal text-blue-600">(Best size kept)</span>';
+        } else if (newBytes < origBytes) {
           const pct = Math.round((1 - newBytes / origBytes) * 100);
           const saved = formatBytes(origBytes - newBytes);
           savingsEl.className = 'inline-flex items-center gap-1 rounded-md bg-green-100 border border-green-200 px-2 py-1 text-[10px] font-bold text-green-700';
@@ -1030,15 +1033,19 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     }
 
     if (onProgress) onProgress('Finalizing...');
-    const outBlob = doc.output('blob');
-    // Yield so UI can paint "Download Ready" before returning
+    const outBlob = doc.output('blob') as Blob;
     await new Promise(r => setTimeout(r, 0));
-    return { blob: outBlob, filename: `${baseName}-compressed.pdf` };
+
+    // Smart safeguard: if compressed is larger, keep the original
+    if (outBlob.size >= file.size) {
+      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf`, keptOriginal: true as const };
+    }
+    return { blob: outBlob, filename: `${baseName}-compressed.pdf`, keptOriginal: false as const };
     } catch (e) {
       console.error('PDF compression failed:', e);
       if (onProgress) onProgress('Compression failed — saving original');
       toast('PDF engine error. Downloading original file.', 'error');
-      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf` };
+      return { blob: new Blob([file], { type: pdfMime }), filename: `${baseName}-compressed.pdf`, keptOriginal: true as const };
     }
   }
 
@@ -1161,7 +1168,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const origBytes = file.size;
         const newBytes = result.blob.size;
         savingsEl.classList.remove('hidden');
-        if (newBytes < origBytes) {
+        if ((result as any).keptOriginal) {
+          savingsEl.className = 'inline-flex items-center gap-1 rounded-md bg-blue-100 border border-blue-200 px-2 py-1 text-[10px] font-bold text-blue-700';
+          savingsEl.innerHTML = '<span>Already Optimized</span><span class="font-normal text-blue-600">(Best size kept)</span>';
+        } else if (newBytes < origBytes) {
           const pct = Math.round((1 - newBytes / origBytes) * 100);
           savingsEl.className = savingsEl.className.replace(/bg-\w+-\d+/g, 'bg-green-100').replace(/border-\w+-\d+/g, 'border-green-200').replace(/text-\w+-\d+/g, 'text-green-700');
           savingsEl.textContent = `${pct}% smaller`;
