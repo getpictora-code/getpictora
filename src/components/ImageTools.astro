@@ -24,8 +24,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
       </div>
       <div>
-        <p class="text-lg font-semibold text-text-primary">Drag &amp; drop your images here</p>
-        <p class="mt-1 text-sm text-text-secondary">or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF</p>
+        <p class="text-lg font-semibold text-text-primary" id="drop-title">Drag &amp; drop your images here</p>
+        <p class="mt-1 text-sm text-text-secondary" id="drop-subtitle">or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF</p>
       </div>
       <span class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-accent-hover hover:shadow-md">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
@@ -401,12 +401,14 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       if (blob) URL.revokeObjectURL(blob);
     });
     previewGrid.innerHTML = '';
+    const hasPdfs = files.some(f => f.type === pdfMime && activeTool === 'pdfcompress');
     fileCount.textContent = `${files.length} file${files.length!==1?'s':''} selected`;
-    previewCount.textContent = `${files.length} image${files.length!==1?'s':''} loaded`;
+    previewCount.textContent = `${files.length} ${hasPdfs ? 'file' : 'image'}${files.length!==1?'s':''} loaded`;
     files.forEach((file) => {
       const clone = template.content.cloneNode(true) as HTMLElement;
       const card = clone.querySelector('.preview-card')!;
       const origImg = clone.querySelector('.preview-orig-img') as HTMLImageElement;
+      const origImgWrap = origImg.parentElement!;
       const canvas = clone.querySelector('.preview-canvas') as HTMLCanvasElement;
       const nameEl = clone.querySelector('.preview-name')!;
       const origSizeEl = clone.querySelector('.preview-orig-size')!;
@@ -416,10 +418,20 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       const idleSpan = clone.querySelector('.preview-dl-idle')!;
       const readySpan = clone.querySelector('.preview-dl-ready')!;
 
-      const url = URL.createObjectURL(file);
-      origImg.src = url;
-      // Store original blob URL on card so we can revoke it on reset/reprocess
-      card.setAttribute('data-orig-url', url);
+      const isPdf = file.type === pdfMime && activeTool === 'pdfcompress';
+
+      if (isPdf) {
+        // Show PDF document icon instead of broken image
+        origImg.style.display = 'none';
+        const pdfIcon = document.createElement('div');
+        pdfIcon.className = 'flex items-center justify-center h-full w-full';
+        pdfIcon.innerHTML = `<svg class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><text x="8" y="16" font-size="6" fill="currentColor" stroke="none" font-weight="bold">PDF</text></svg>`;
+        origImgWrap.appendChild(pdfIcon);
+      } else {
+        const url = URL.createObjectURL(file);
+        origImg.src = url;
+        card.setAttribute('data-orig-url', url);
+      }
       nameEl.textContent = file.name;
       origSizeEl.textContent = formatBytes(file.size);
       newSizeEl.textContent = '...';
@@ -434,17 +446,29 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         card.setAttribute('data-filename', result.filename);
         newSizeEl.textContent = formatBytes(result.blob.size);
 
-        // Render canvas preview
-        const previewImg = new Image();
-        previewImg.onload = () => {
-          canvas.width = previewImg.naturalWidth;
-          canvas.height = previewImg.naturalHeight;
+        if (isPdf) {
+          // PDF result — show success icon on canvas area
+          canvas.width = 200; canvas.height = 200;
           const pctx = canvas.getContext('2d')!;
-          pctx.imageSmoothingEnabled = true;
-          pctx.imageSmoothingQuality = 'high';
-          pctx.drawImage(previewImg, 0, 0);
-        };
-        previewImg.src = newUrl;
+          pctx.fillStyle = '#f0fdf4'; pctx.fillRect(0, 0, 200, 200);
+          pctx.fillStyle = '#16a34a'; pctx.font = 'bold 14px system-ui';
+          pctx.textAlign = 'center';
+          pctx.fillText('✓ PDF Compressed', 100, 90);
+          pctx.fillStyle = '#166534'; pctx.font = '11px system-ui';
+          pctx.fillText(formatBytes(result.blob.size), 100, 115);
+        } else {
+          // Image result — render canvas preview
+          const previewImg = new Image();
+          previewImg.onload = () => {
+            canvas.width = previewImg.naturalWidth;
+            canvas.height = previewImg.naturalHeight;
+            const pctx2 = canvas.getContext('2d')!;
+            pctx2.imageSmoothingEnabled = true;
+            pctx2.imageSmoothingQuality = 'high';
+            pctx2.drawImage(previewImg, 0, 0);
+          };
+          previewImg.src = newUrl;
+        }
 
         // Savings badge
         const origBytes = file.size;
@@ -963,6 +987,19 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     activeTool = tab.getAttribute('data-tool')!;
     panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
     panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
+
+    // Update drop zone text and file input accept based on active tool
+    const dropTitle = document.getElementById('drop-title');
+    const dropSubtitle = document.getElementById('drop-subtitle');
+    if (activeTool === 'pdfcompress') {
+      if (dropTitle) dropTitle.textContent = 'Drag & drop your PDF here';
+      if (dropSubtitle) dropSubtitle.textContent = 'or click to browse — supports PDF files';
+      fileInput.setAttribute('accept', '.pdf,application/pdf');
+    } else {
+      if (dropTitle) dropTitle.textContent = 'Drag & drop your images here';
+      if (dropSubtitle) dropSubtitle.textContent = 'or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF';
+      fileInput.setAttribute('accept', 'image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,application/pdf');
+    }
   }
 
   tabs.forEach(tab => {
