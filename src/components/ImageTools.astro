@@ -208,12 +208,12 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       <!-- PDF Compress Panel -->
       <div data-panel="pdfcompress" class="hidden space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Quality: <span id="pdfcomp-qval">60</span>%</label>
-          <input type="range" id="pdfcomp-quality" value="60" min="10" max="100" step="5" class="w-full accent-accent" />
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Quality: <span id="pdfcomp-qval">85</span>%</label>
+          <input type="range" id="pdfcomp-quality" value="85" min="10" max="100" step="5" class="w-full accent-accent" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Scale: <span id="pdfcomp-scaleval">0.7</span>x</label>
-          <input type="range" id="pdfcomp-scale" value="70" min="30" max="100" step="5" class="w-full accent-accent" />
+          <label class="block text-xs font-semibold text-text-secondary mb-1.5">Scale: <span id="pdfcomp-scaleval">0.85</span>x</label>
+          <input type="range" id="pdfcomp-scale" value="85" min="30" max="100" step="5" class="w-full accent-accent" />
         </div>
         <p class="text-xs text-text-tertiary">Upload a PDF to compress. Lower quality = smaller file size. Scale reduces page resolution before re-packaging.</p>
       </div>
@@ -1003,8 +1003,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }).promise;
       const totalPages = pdfDoc.numPages;
 
-    const scale = parseInt((document.getElementById('pdfcomp-scale') as HTMLInputElement).value) / 100 || 0.7;
-    const quality = parseInt((document.getElementById('pdfcomp-quality') as HTMLInputElement).value) / 100 || 0.6;
+    const scale = parseInt((document.getElementById('pdfcomp-scale') as HTMLInputElement).value) / 100 || 0.85;
+    const quality = parseInt((document.getElementById('pdfcomp-quality') as HTMLInputElement).value) / 100 || 0.85;
 
     const pageImages: { canvas: HTMLCanvasElement; w: number; h: number }[] = [];
 
@@ -1029,12 +1029,17 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       hotfixes: ['px_scaling'],
     });
 
+    // Use PNG (lossless) at quality >= 0.95, JPEG otherwise
+    const usePng = quality >= 0.95;
+    const imgFormat = usePng ? 'PNG' : 'JPEG';
+    const mimeType = usePng ? 'image/png' : 'image/jpeg';
+
     for (let i = 0; i < pageImages.length; i++) {
       if (i > 0) {
         doc.addPage([pageImages[i].w, pageImages[i].h], pageImages[i].w > pageImages[i].h ? 'landscape' : 'portrait');
       }
-      const dataUrl = pageImages[i].canvas.toDataURL('image/jpeg', quality);
-      doc.addImage(dataUrl, 'JPEG', 0, 0, pageImages[i].w, pageImages[i].h, undefined, 'FAST');
+      const dataUrl = pageImages[i].canvas.toDataURL(mimeType, quality);
+      doc.addImage(dataUrl, imgFormat, 0, 0, pageImages[i].w, pageImages[i].h, undefined, 'FAST');
     }
 
     if (onProgress) onProgress('Finalizing...');
