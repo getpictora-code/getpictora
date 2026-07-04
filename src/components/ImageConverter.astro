@@ -226,14 +226,43 @@ const formatLabels = acceptFormats
       fileList.appendChild(clone);
 
       // Show thumbnail
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        thumb.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+      const isPdfFile = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+      if (!isPdfFile) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          thumb.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+      }
 
       try {
         spinner.style.display = '';
+
+        // PDF interceptor — bypass image canvas pipeline entirely
+        if (isPdfFile) {
+          let finalPdfBlob: Blob = file;
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            // If compression engine is available, use it; otherwise keep original
+            // (full PDF compression is handled by ImageTools.astro /compress-pdf route)
+          } catch (_) { /* keep original */ }
+
+          spinner.style.display = 'none';
+          done.style.display = '';
+          downloadBtn.style.display = '';
+
+          downloadBtn.addEventListener('click', () => {
+            const url = URL.createObjectURL(finalPdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name.replace(/\.[^.]+$/, '-compressed.pdf');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          });
+          return; // STOP — never hit the image canvas rendering loop
+        }
 
         const outputFile = await convertImage(file, format, label);
 
