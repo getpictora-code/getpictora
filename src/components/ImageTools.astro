@@ -1058,14 +1058,20 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   const tabList = document.querySelector('[role="tablist"]') as HTMLElement;
 
   function activateTab(tab: HTMLElement) {
+    const newTool = tab.getAttribute('data-tool')!;
+    const wasChanged = activeTool !== newTool;
+    activeTool = newTool;
+
     tabs.forEach(b => { b.setAttribute('aria-selected', 'false'); b.tabIndex = -1; b.className = b.className.replace(/bg-surface-card text-text-primary shadow-sm/g, 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'); });
     tab.setAttribute('aria-selected', 'true');
     tab.tabIndex = 0;
     tab.focus();
     tab.className = tab.className.replace(/text-text-secondary hover:text-text-primary hover:bg-surface-card\/60/g, 'bg-surface-card text-text-primary shadow-sm');
-    activeTool = tab.getAttribute('data-tool')!;
     panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
     panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
+
+    // Clear all files and state when switching tabs to prevent format leakage
+    if (wasChanged && files.length > 0) resetAll();
 
     // Update drop zone text and file input accept based on active tool
     const dropTitle = document.getElementById('drop-title');
@@ -1077,7 +1083,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     } else {
       if (dropTitle) dropTitle.textContent = 'Drag & drop your images here';
       if (dropSubtitle) dropSubtitle.textContent = 'or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF';
-      fileInput.setAttribute('accept', 'image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,application/pdf');
+      fileInput.setAttribute('accept', 'image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff');
     }
   }
 
