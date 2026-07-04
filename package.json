@@ -18,5 +18,8 @@
     "jspdf": "^4.2.1",
     "pdfjs-dist": "^6.1.200",
     "tailwindcss": "^4.3.2"
+  },
+  "devDependencies": {
+    "serve": "^14.2.6"
   }
 }

@@ -536,8 +536,9 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         readySpan.classList.remove('hidden');
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
       }).finally(() => {
-        // Guarantee loading spinner is ALWAYS turned off
-        canvasWrap?.classList.remove('preview-loading');
+        // Guarantee loading spinner is always turned off
+        const cw = canvas.parentElement;
+        if (cw) cw.classList.remove('preview-loading');
       });
 
       // Download handler with iframe fallback for managed Chrome browsers
@@ -568,7 +569,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   // Unified download trigger — anchor first, iframe fallback for managed Chrome
-  function triggerDownload(url, filename) {
+  function triggerDownload(url: string, filename: string) {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
