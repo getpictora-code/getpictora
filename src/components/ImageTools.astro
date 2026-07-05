@@ -468,7 +468,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         if (prevUrl) URL.revokeObjectURL(prevUrl);
         card.setAttribute('data-blob-url', newUrl);
         card.setAttribute('data-filename', result.filename);
-        newSizeEl.textContent = formatBytes(result.blob.size);
+        const szEl1 = card.querySelector('.preview-new-size'); if (szEl1) szEl1.textContent = formatBytes(result.blob.size);
 
         if (isPdf) {
           // PDF result — show success icon on canvas area
@@ -1174,7 +1174,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         if (prev) URL.revokeObjectURL(prev);
         card.setAttribute('data-blob-url', newUrl);
         card.setAttribute('data-filename', result.filename);
-        newSizeEl.textContent = formatBytes(result.blob.size);
+        const szEl2 = card.querySelector('.preview-new-size'); if (szEl2) szEl2.textContent = formatBytes(result.blob.size);
 
         const isPdfReprocess = file.type === pdfMime && activeTool === 'pdfcompress';
         if (isPdfReprocess) {
