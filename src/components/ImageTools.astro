@@ -1100,9 +1100,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
     panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
 
-    // Clear all files and state when switching tabs to prevent format leakage
-    if (wasChanged && files.length > 0) resetAll();
-
     // Update drop zone text and file input accept based on active tool
     const dropTitle = document.getElementById('drop-title');
     const dropSubtitle = document.getElementById('drop-subtitle');
@@ -1114,6 +1111,32 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       if (dropTitle) dropTitle.textContent = 'Drag & drop your images here';
       if (dropSubtitle) dropSubtitle.textContent = 'or click to browse — supports JPG, PNG, WebP, GIF, BMP, TIFF';
       fileInput.setAttribute('accept', 'image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff');
+    }
+
+    // Keep files when switching tabs — re-process with new tool parameters
+    if (wasChanged && files.length > 0) {
+      const isPdfTool = activeTool === 'pdfcompress';
+      const compatible = files.filter(f => isPdfTool ? f.type === pdfMime : f.type !== pdfMime);
+      const removed = files.length - compatible.length;
+      if (removed > 0) {
+        // Revoke blob URLs for removed files
+        previewGrid.querySelectorAll('.preview-card').forEach((card, i) => {
+          if (i >= compatible.length) {
+            const orig = card.getAttribute('data-orig-url');
+            const blob = card.getAttribute('data-blob-url');
+            if (orig) URL.revokeObjectURL(orig);
+            if (blob) URL.revokeObjectURL(blob);
+          }
+        });
+        toast(`${removed} file${removed !== 1 ? 's' : ''} not compatible with ${isPdfTool ? 'PDF Compress' : 'image tools'} — removed`, 'info');
+      }
+      files = compatible;
+      if (files.length > 0) {
+        updatePreviews();
+      } else {
+        // All files filtered out — reset fully
+        resetAll();
+      }
     }
   }
 
