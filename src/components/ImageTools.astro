@@ -158,16 +158,39 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
       <!-- Crop Panel -->
       <div data-panel="crop" class="hidden space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs font-semibold text-text-secondary mb-1">X offset</label><input type="number" id="crop-x" value="0" min="0" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
-          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Y offset</label><input type="number" id="crop-y" value="0" min="0" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
-          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Width</label><input type="number" id="crop-w" value="400" min="1" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
-          <div><label class="block text-xs font-semibold text-text-secondary mb-1">Height</label><input type="number" id="crop-h" value="400" min="1" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent outline-none transition" /></div>
+        <!-- Aspect ratio presets -->
+        <div class="flex flex-wrap gap-1.5">
+          {[
+            { id: 'free', label: 'Free' },
+            { id: '1:1', label: 'Square 1:1' },
+            { id: '4:3', label: '4:3' },
+            { id: '16:9', label: 'Wide 16:9' },
+          ].map(({ id, label }) => (
+            <button data-crop-ratio={id} class={`crop-ratio-btn rounded-lg border px-3 py-1.5 text-[11px] font-medium animate-soft ${id === 'free' ? 'bg-accent-soft border-accent/30 text-accent' : 'border-border-secondary text-text-secondary hover:bg-surface-secondary hover:text-text-primary'}`}>
+              {label}
+            </button>
+          ))}
         </div>
-        <button id="crop-reset-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary">
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          Full Image
-        </button>
+
+        <!-- Interactive crop canvas -->
+        <div class="relative rounded-xl overflow-hidden border border-border-secondary bg-surface-primary select-none">
+          <canvas id="crop-canvas" class="w-full cursor-crosshair touch-none block" style="min-height:280px;max-height:480px;"></canvas>
+          <p id="crop-dim-label" class="absolute bottom-2 left-3 text-[10px] font-mono text-white bg-black/50 rounded-md px-2 py-1 pointer-events-none">—</p>
+        </div>
+
+        <!-- Hidden number inputs — synced from canvas, read by processFile -->
+        <input type="hidden" id="crop-x" value="0" />
+        <input type="hidden" id="crop-y" value="0" />
+        <input type="hidden" id="crop-w" value="0" />
+        <input type="hidden" id="crop-h" value="0" />
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="crop-reset-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary">
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Full Image
+          </button>
+          <span id="crop-info" class="text-[11px] text-text-tertiary">Drag handles to crop</span>
+        </div>
       </div>
 
       <!-- Rotate Panel -->
@@ -1276,26 +1299,377 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   });
 
   // ==========================================
-  // CROP — Auto-apply on input change, reset to full image
+  // CROP — Interactive canvas with drag handles, ratio presets, overlay
   // ==========================================
+  const cropCanvas = document.getElementById('crop-canvas') as HTMLCanvasElement;
+  const cropCtx = cropCanvas?.getContext('2d')!;
   const cropX = document.getElementById('crop-x') as HTMLInputElement;
   const cropY = document.getElementById('crop-y') as HTMLInputElement;
   const cropW = document.getElementById('crop-w') as HTMLInputElement;
   const cropH = document.getElementById('crop-h') as HTMLInputElement;
+  const cropDimLabel = document.getElementById('crop-dim-label') as HTMLElement;
+  const cropInfo = document.getElementById('crop-info') as HTMLElement;
 
-  document.querySelectorAll('[data-panel="crop"] input').forEach(input => {
-    input.addEventListener('input', debouncedReprocess);
+  let cropSourceImg: HTMLImageElement | null = null; // image loaded onto crop canvas
+  let cropRect = { x: 0, y: 0, w: 0, h: 0 };       // in image-pixel coords
+  let cropRatio = 'free';                             // 'free' | '1:1' | '4:3' | '16:9'
+  let cropDisplayScale = 1;                           // display px per image px
+  let cropOffsetX = 0, cropOffsetY = 0;               // image offset within canvas
+
+  // Drag state
+  let dragMode: 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | null = null;
+  let dragStart = { mx: 0, my: 0, rx: 0, ry: 0, rw: 0, rh: 0 };
+
+  const HANDLE_SIZE = 10;
+  const HANDLE_HIT = 16; // hit-test radius in display px
+
+  function getRatioValue(ratio: string): number | null {
+    if (ratio === '1:1') return 1;
+    if (ratio === '4:3') return 4/3;
+    if (ratio === '16:9') return 16/9;
+    return null;
+  }
+
+  /** Load the current source image for the crop canvas */
+  function loadCropSource() {
+    if (files.length === 0) { cropSourceImg = null; return; }
+    const file = files[0];
+    // Use pipeline blob if available (previous transforms), else raw file
+    const blob = pipelineBlobs.get(file);
+    const src = blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      if (blob) URL.revokeObjectURL(src);
+      cropSourceImg = img;
+      initCropFromImage();
+      renderCropCanvas();
+    };
+    img.src = src;
+  }
+
+  /** Initialize crop rect to full image or restore from inputs */
+  function initCropFromImage() {
+    if (!cropSourceImg) return;
+    const iw = cropSourceImg.naturalWidth;
+    const ih = cropSourceImg.naturalHeight;
+    // Try reading existing input values; if they look stale (w > image), reset to full
+    const ex = parseInt(cropX.value) || 0;
+    const ey = parseInt(cropY.value) || 0;
+    const ew = parseInt(cropW.value) || 0;
+    const eh = parseInt(cropH.value) || 0;
+    if (ew > 0 && eh > 0 && ex + ew <= iw && ey + eh <= ih) {
+      cropRect = { x: ex, y: ey, w: ew, h: eh };
+    } else {
+      cropRect = { x: 0, y: 0, w: iw, h: ih };
+    }
+  }
+
+  /** Render the crop canvas: image + dark overlay + bright crop window + corner handles */
+  function renderCropCanvas() {
+    if (!cropCanvas || !cropSourceImg) return;
+    const dpr = window.devicePixelRatio || 1;
+    const cw = cropCanvas.clientWidth;
+    const ch = Math.min(cw * 0.75, 480);
+    cropCanvas.style.height = ch + 'px';
+    cropCanvas.width = cw * dpr;
+    cropCanvas.height = ch * dpr;
+    cropCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const iw = cropSourceImg.naturalWidth;
+    const ih = cropSourceImg.naturalHeight;
+
+    // Scale image to fit canvas, maintaining aspect ratio
+    const fitScale = Math.min(cw / iw, ch / ih);
+    const drawW = iw * fitScale;
+    const drawH = ih * fitScale;
+    cropDisplayScale = fitScale;
+    cropOffsetX = Math.round((cw - drawW) / 2);
+    cropOffsetY = Math.round((ch - drawH) / 2);
+
+    // 1. Draw image centered
+    cropCtx.clearRect(0, 0, cw, ch);
+    cropCtx.drawImage(cropSourceImg, cropOffsetX, cropOffsetY, drawW, drawH);
+
+    // 2. Dark semi-transparent overlay everywhere EXCEPT the crop rect
+    const rx = cropOffsetX + cropRect.x * fitScale;
+    const ry = cropOffsetY + cropRect.y * fitScale;
+    const rw = cropRect.w * fitScale;
+    const rh = cropRect.h * fitScale;
+
+    cropCtx.fillStyle = 'rgba(0,0,0,0.55)';
+    cropCtx.fillRect(0, 0, cw, ry);                        // top
+    cropCtx.fillRect(0, ry, rx, rh);                        // left
+    cropCtx.fillRect(rx + rw, ry, cw - rx - rw, rh);       // right
+    cropCtx.fillRect(0, ry + rh, cw, ch - ry - rh);        // bottom
+
+    // 3. White border around crop window
+    cropCtx.strokeStyle = '#fff';
+    cropCtx.lineWidth = 2;
+    cropCtx.setLineDash([6, 3]);
+    cropCtx.strokeRect(rx, ry, rw, rh);
+    cropCtx.setLineDash([]);
+
+    // 4. Corner handles
+    const corners = [
+      { x: rx, y: ry },           // nw
+      { x: rx + rw, y: ry },      // ne
+      { x: rx, y: ry + rh },      // sw
+      { x: rx + rw, y: ry + rh }, // se
+    ];
+    cropCtx.fillStyle = '#fff';
+    cropCtx.strokeStyle = 'rgba(0,0,0,0.3)';
+    cropCtx.lineWidth = 1;
+    corners.forEach(c => {
+      cropCtx.fillRect(c.x - HANDLE_SIZE/2, c.y - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE);
+      cropCtx.strokeRect(c.x - HANDLE_SIZE/2, c.y - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE);
+    });
+
+    // 5. Edge midpoints (smaller handles)
+    const edges = [
+      { x: rx + rw/2, y: ry },           // n
+      { x: rx + rw/2, y: ry + rh },      // s
+      { x: rx, y: ry + rh/2 },           // w
+      { x: rx + rw, y: ry + rh/2 },      // e
+    ];
+    cropCtx.fillStyle = 'rgba(255,255,255,0.7)';
+    edges.forEach(e => {
+      cropCtx.fillRect(e.x - 4, e.y - 4, 8, 8);
+      cropCtx.strokeRect(e.x - 4, e.y - 4, 8, 8);
+    });
+
+    // 6. Dimension label
+    cropDimLabel.textContent = `${Math.round(cropRect.w)} × ${Math.round(cropRect.h)} px`;
+  }
+
+  /** Sync cropRect → hidden inputs → trigger pipeline reprocess */
+  function applyCrop() {
+    cropX.value = String(Math.round(cropRect.x));
+    cropY.value = String(Math.round(cropRect.y));
+    cropW.value = String(Math.round(cropRect.w));
+    cropH.value = String(Math.round(cropRect.h));
+    cropInfo.textContent = `${Math.round(cropRect.w)}×${Math.round(cropRect.h)} px`;
+    reprocessPreviews();
+  }
+
+  /** Convert display coords to image coords */
+  function displayToImage(dx: number, dy: number): { ix: number; iy: number } {
+    return {
+      ix: (dx - cropOffsetX) / cropDisplayScale,
+      iy: (dy - cropOffsetY) / cropDisplayScale,
+    };
+  }
+
+  /** Hit-test: which handle is at display (px, py)? */
+  function hitTest(px: number, py: number): typeof dragMode {
+    const rx = cropOffsetX + cropRect.x * cropDisplayScale;
+    const ry = cropOffsetY + cropRect.y * cropDisplayScale;
+    const rw = cropRect.w * cropDisplayScale;
+    const rh = cropRect.h * cropDisplayScale;
+    const h = HANDLE_HIT;
+
+    if (Math.abs(px - rx) < h && Math.abs(py - ry) < h) return 'nw';
+    if (Math.abs(px - (rx + rw)) < h && Math.abs(py - ry) < h) return 'ne';
+    if (Math.abs(px - rx) < h && Math.abs(py - (ry + rh)) < h) return 'sw';
+    if (Math.abs(px - (rx + rw)) < h && Math.abs(py - (ry + rh)) < h) return 'se';
+    if (Math.abs(px - (rx + rw/2)) < h && Math.abs(py - ry) < h) return 'n';
+    if (Math.abs(px - (rx + rw/2)) < h && Math.abs(py - (ry + rh)) < h) return 's';
+    if (Math.abs(px - rx) < h && Math.abs(py - (ry + rh/2)) < h) return 'w';
+    if (Math.abs(px - (rx + rw)) < h && Math.abs(py - (ry + rh/2)) < h) return 'e';
+    if (px > rx && px < rx + rw && py > ry && py < ry + rh) return 'move';
+    return null;
+  }
+
+  function getEventPos(e: MouseEvent | TouchEvent): { x: number; y: number } {
+    const rect = cropCanvas.getBoundingClientRect();
+    if ('touches' in e) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top };
+  }
+
+  /** Apply aspect ratio constraint to a new width/height */
+  function constrainRatio(w: number, h: number, anchorX: number, anchorY: number, anchorW: number, anchorH: number): { w: number; h: number } {
+    const ratioVal = getRatioValue(cropRatio);
+    if (!ratioVal) return { w, h };
+    // Lock height based on width, clamped to image bounds
+    const iw = cropSourceImg!.naturalWidth;
+    const ih = cropSourceImg!.naturalHeight;
+    let cw = w;
+    let ch = Math.round(cw / ratioVal);
+    if (anchorY + ch > ih) { ch = ih - anchorY; cw = Math.round(ch * ratioVal); }
+    if (anchorX + cw > iw) { cw = iw - anchorX; ch = Math.round(cw / ratioVal); }
+    return { w: Math.max(1, cw), h: Math.max(1, ch) };
+  }
+
+  function onCropPointerDown(e: MouseEvent | TouchEvent) {
+    e.preventDefault();
+    const pos = getEventPos(e);
+    const mode = hitTest(pos.x, pos.y);
+    if (!mode) { dragMode = null; return; }
+    dragMode = mode;
+    dragStart = {
+      mx: pos.x, my: pos.y,
+      rx: cropRect.x, ry: cropRect.y, rw: cropRect.w, rh: cropRect.h,
+    };
+    cropCanvas.setPointerCapture((e as any).pointerId ?? 1);
+    cropCanvas.style.cursor = mode === 'move' ? 'move' : getResizeCursor(mode);
+  }
+
+  function onCropPointerMove(e: MouseEvent | TouchEvent) {
+    e.preventDefault();
+    if (!cropSourceImg) return;
+    const pos = getEventPos(e);
+    const iw = cropSourceImg.naturalWidth;
+    const ih = cropSourceImg.naturalHeight;
+
+    if (dragMode) {
+      const dx = (pos.x - dragStart.mx) / cropDisplayScale;
+      const dy = (pos.y - dragStart.my) / cropDisplayScale;
+      let { rx, ry, rw, rh } = dragStart;
+
+      if (dragMode === 'move') {
+        let nx = Math.max(0, Math.min(iw - rw, rx + dx));
+        let ny = Math.max(0, Math.min(ih - rh, ry + dy));
+        cropRect = { x: nx, y: ny, w: rw, h: rh };
+      } else {
+        if (dragMode.includes('e')) {
+          rw = Math.max(1, Math.min(iw - rx, rw + dx));
+        }
+        if (dragMode.includes('w')) {
+          const nw = Math.max(1, Math.min(rx + rw, rw - dx));
+          rx = rx + rw - nw;
+          rw = nw;
+        }
+        if (dragMode.includes('s')) {
+          rh = Math.max(1, Math.min(ih - ry, rh + dy));
+        }
+        if (dragMode.includes('n')) {
+          const nh = Math.max(1, Math.min(ry + rh, rh - dy));
+          ry = ry + rh - nh;
+          rh = nh;
+        }
+        // Apply aspect ratio constraint
+        const ratioVal = getRatioValue(cropRatio);
+        if (ratioVal) {
+          if (dragMode === 'nw' || dragMode === 'se') {
+            // Corner resize: lock to ratio from the opposite corner
+            if (dragMode === 'nw') {
+              const origRight = dragStart.rx + dragStart.rw;
+              const origBottom = dragStart.ry + dragStart.rh;
+              // New right edge = rx + rw (from se), new bottom = ry + rh
+              const newW = Math.max(1, Math.min(iw - rx, Math.round(rh * ratioVal)));
+              const newH = Math.round(newW / ratioVal);
+              if (ry + newH > ih) { /* width-driven already */ }
+              rw = newW; rh = newH;
+            } else {
+              // se: lock from nw corner
+              rh = Math.round(rw / ratioVal);
+              if (ry + rh > ih) { rh = ih - ry; rw = Math.round(rh * ratioVal); }
+            }
+          } else if (dragMode === 'ne' || dragMode === 'sw') {
+            if (dragMode === 'ne') {
+              rh = Math.round(rw / ratioVal);
+              ry = dragStart.ry + dragStart.rh - rh;
+              if (ry < 0) { ry = 0; rh = dragStart.ry + dragStart.rh; rw = Math.round(rh * ratioVal); }
+            } else {
+              rh = Math.round(rw / ratioVal);
+              if (dragStart.ry + rh > ih) { rh = ih - dragStart.ry; rw = Math.round(rh * ratioVal); }
+            }
+          }
+        }
+        cropRect = {
+          x: Math.max(0, Math.round(rx)),
+          y: Math.max(0, Math.round(ry)),
+          w: Math.max(1, Math.round(rw)),
+          h: Math.max(1, Math.round(rh)),
+        };
+      }
+      renderCropCanvas();
+    } else {
+      // Update cursor on hover
+      const mode = hitTest(pos.x, pos.y);
+      cropCanvas.style.cursor = mode ? (mode === 'move' ? 'move' : getResizeCursor(mode)) : 'crosshair';
+    }
+  }
+
+  function onCropPointerUp(e: MouseEvent | TouchEvent) {
+    if (!dragMode) return;
+    dragMode = null;
+    cropCanvas.style.cursor = 'crosshair';
+    applyCrop();
+  }
+
+  function getResizeCursor(mode: string): string {
+    if (mode === 'nw' || mode === 'se') return 'nwse-resize';
+    if (mode === 'ne' || mode === 'sw') return 'nesw-resize';
+    if (mode === 'n' || mode === 's') return 'ns-resize';
+    if (mode === 'e' || mode === 'w') return 'ew-resize';
+    return 'crosshair';
+  }
+
+  // Wire pointer events on crop canvas
+  cropCanvas?.addEventListener('pointerdown', onCropPointerDown);
+  cropCanvas?.addEventListener('pointermove', onCropPointerMove);
+  cropCanvas?.addEventListener('pointerup', onCropPointerUp);
+  cropCanvas?.addEventListener('pointerleave', onCropPointerUp);
+  // Touch-specific: prevent scrolling while interacting
+  cropCanvas?.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+
+  // Aspect ratio preset buttons
+  document.querySelectorAll('.crop-ratio-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.crop-ratio-btn').forEach(b => {
+        b.className = b.className.replace('bg-accent-soft border-accent/30 text-accent', 'border-border-secondary text-text-secondary hover:bg-surface-secondary hover:text-text-primary');
+      });
+      btn.classList.add('bg-accent-soft', 'border-accent/30', 'text-accent');
+      btn.classList.remove('border-border-secondary', 'text-text-secondary', 'hover:bg-surface-secondary', 'hover:text-text-primary');
+      cropRatio = btn.getAttribute('data-crop-ratio') || 'free';
+
+      // If switching to a locked ratio, constrain the current rect
+      if (cropRatio !== 'free' && cropSourceImg) {
+        const ratioVal = getRatioValue(cropRatio);
+        if (ratioVal) {
+          const cw = cropRect.w;
+          const ch = Math.round(cw / ratioVal);
+          const iw = cropSourceImg.naturalWidth;
+          const ih = cropSourceImg.naturalHeight;
+          if (cropRect.y + ch > ih) {
+            cropRect.h = ih - cropRect.y;
+            cropRect.w = Math.round(cropRect.h * ratioVal);
+          } else {
+            cropRect.h = ch;
+          }
+        }
+        renderCropCanvas();
+        applyCrop();
+      }
+    });
   });
 
-  // "Full Image" button resets all crop bounds to the full source image
+  // "Full Image" reset
   document.getElementById('crop-reset-btn')?.addEventListener('click', () => {
-    cropX.value = '0';
-    cropY.value = '0';
-    // Sentinel values: 0 means "use full image dimensions" in processFile
-    cropW.value = '0';
-    cropH.value = '0';
+    cropX.value = '0'; cropY.value = '0'; cropW.value = '0'; cropH.value = '0';
+    if (cropSourceImg) {
+      cropRect = { x: 0, y: 0, w: cropSourceImg.naturalWidth, h: cropSourceImg.naturalHeight };
+      renderCropCanvas();
+    }
     reprocessPreviews();
   });
+
+  // Re-render crop canvas when tab activates or files change
+  // Hook into updatePreviews to refresh crop source
+  const _origUpdatePreviews = updatePreviews;
+  updatePreviews = function() {
+    _origUpdatePreviews();
+    if (activeTool === 'crop' && files.length > 0) loadCropSource();
+  };
+
+  // Also load when activating crop tab from another tool
+  const _origActivateTab = activateTab;
+  activateTab = function(tab: HTMLElement) {
+    _origActivateTab(tab);
+    if (activeTool === 'crop' && files.length > 0) loadCropSource();
+  };
 
   // ==========================================
   // ROTATE — Instant on button click
