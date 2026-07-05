@@ -83,9 +83,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
           aria-selected={i === 0 ? 'true' : 'false'}
           aria-label={`${tool.label} tool`}
           tabindex={i === 0 ? 0 : -1}
-          class={`tools-tab flex-shrink-0 min-w-[68px] sm:min-w-[80px] sm:flex-1 rounded-xl px-2.5 py-2.5 sm:px-3 text-[11px] sm:text-xs font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-accent ${
+          class={`tools-tab flex-shrink-0 min-w-[68px] sm:min-w-[80px] sm:flex-1 rounded-xl px-2.5 py-2.5 sm:px-3 text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-200 focus-visible:outline-2 focus-visible:outline-accent ${
             i === 0 ? 'bg-surface-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'
           }`}
+          data-active={i === 0 ? 'true' : 'false'}
         >
           {tool.label}
         </button>
@@ -650,13 +651,30 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       }
       case 'rotate': {
         const active = document.querySelector('.rotate-btn.bg-accent-soft');
-        const deg = active ? parseInt((active as HTMLElement).dataset.rotate!) : 90;
-        canvas = rotateImage(img, isNaN(deg) ? parseInt((document.getElementById('rotate-custom-deg') as HTMLInputElement).value) || 45 : deg);
+        if (!active) {
+          // No rotate button explicitly chosen — passthrough image unchanged
+          const cc3 = createCanvas(img.naturalWidth, img.naturalHeight);
+          canvas = cc3.canvas;
+          cc3.ctx.drawImage(img, 0, 0);
+          break;
+        }
+        const degRaw = (active as HTMLElement).dataset.rotate!;
+        const deg = degRaw === 'custom'
+          ? (parseInt((document.getElementById('rotate-custom-deg') as HTMLInputElement).value) || 0)
+          : parseInt(degRaw);
+        canvas = rotateImage(img, isNaN(deg) ? 0 : deg);
         break;
       }
       case 'filters': {
         const activeFilter = document.querySelector('.filter-btn.bg-accent-soft');
-        const filterId = activeFilter ? (activeFilter as HTMLElement).dataset.filter! : 'grayscale';
+        if (!activeFilter) {
+          // No filter button explicitly chosen — passthrough image unchanged
+          const cc3 = createCanvas(img.naturalWidth, img.naturalHeight);
+          canvas = cc3.canvas;
+          cc3.ctx.drawImage(img, 0, 0);
+          break;
+        }
+        const filterId = (activeFilter as HTMLElement).dataset.filter!;
         canvas = applyFilter(img, filterId);
         break;
       }
@@ -1112,11 +1130,21 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const wasChanged = activeTool !== newTool;
     activeTool = newTool;
 
-    tabs.forEach(b => { b.setAttribute('aria-selected', 'false'); b.tabIndex = -1; b.className = b.className.replace(/bg-surface-card text-text-primary shadow-sm/g, 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60'); });
+    // Deactivate all: reset classes and data-active
+    tabs.forEach(b => {
+      b.setAttribute('aria-selected', 'false');
+      b.tabIndex = -1;
+      b.setAttribute('data-active', 'false');
+      b.className = b.className
+        .replace('bg-surface-card text-text-primary shadow-sm', 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60');
+    });
+    // Activate the clicked tab
     tab.setAttribute('aria-selected', 'true');
     tab.tabIndex = 0;
+    tab.setAttribute('data-active', 'true');
+    tab.className = tab.className
+      .replace('text-text-secondary hover:text-text-primary hover:bg-surface-card/60', 'bg-surface-card text-text-primary shadow-sm');
     tab.focus();
-    tab.className = tab.className.replace(/text-text-secondary hover:text-text-primary hover:bg-surface-card\/60/g, 'bg-surface-card text-text-primary shadow-sm');
     panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
     panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
 
@@ -1277,6 +1305,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('bg-accent-soft','text-accent','border-accent/40'));
       btn.classList.add('bg-accent-soft','text-accent','border-accent/40');
+      // 'Reset' filter flushes the entire pipeline so subsequent tools start from raw originals
+      if (btn.getAttribute('data-filter') === 'none') {
+        pipelineBlobs.clear();
+      }
       reprocessPreviews();
     });
   });
