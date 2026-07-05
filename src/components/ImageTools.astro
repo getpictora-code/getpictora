@@ -643,7 +643,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const y = parseInt((document.getElementById('crop-y') as HTMLInputElement).value) || 0;
         const cw = parseInt((document.getElementById('crop-w') as HTMLInputElement).value) || 400;
         const ch = parseInt((document.getElementById('crop-h') as HTMLInputElement).value) || 400;
-        canvas = document.createElement('canvas');
         const cc3 = createCanvas(cw, ch);
         canvas = cc3.canvas;
         cc3.ctx.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
@@ -1108,17 +1107,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     }
 
     return { blob: resultBlob, filename: resultName, keptOriginal };
-  }
-
-  // Fallback download from a raw Blob (used by reprocessPreviews fallback path only)
-  function downloadBlob(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
   // --- Tool switching ---
