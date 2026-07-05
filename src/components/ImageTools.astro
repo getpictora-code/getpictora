@@ -331,6 +331,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   // State
   let files: File[] = [];
   let activeTool = 'resize';
+  // Pipeline: maps each original file to its cumulative processed blob (chained operations)
+  const pipelineBlobs = new Map<File, Blob>();
 
   // --- Drag & Drop ---
   const dropLabel = dropZone.querySelector('label')!;
@@ -397,6 +399,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       if (orig) URL.revokeObjectURL(orig);
       if (blob) URL.revokeObjectURL(blob);
     });
+    pipelineBlobs.clear();
     files = [];
     previewGrid.innerHTML = '';
     dropZone.classList.remove('hidden');
@@ -449,19 +452,23 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       origSizeEl.textContent = formatBytes(file.size);
       newSizeEl.textContent = '...';
 
-      // Auto-process immediately — progress shown in button for PDFs
-      if (isPdf) {
-        const spinnerSvg = idleSpan.querySelector('svg');
-        idleSpan.innerHTML = (spinnerSvg ? spinnerSvg.outerHTML : '') + ' Initializing...';
-      }
+      // Auto-processing label so users see immediate feedback
+      const spinnerSvg = idleSpan.querySelector('svg');
+      idleSpan.innerHTML = (spinnerSvg ? spinnerSvg.outerHTML : '') + (isPdf ? ' Initializing...' : ' Processing...');
+
       // Atomic processing counter to prevent stale results
       let procCounter = parseInt(card.getAttribute('data-process-id') || '0') + 1;
       card.setAttribute('data-process-id', String(procCounter));
-      processFile(file, activeTool, isPdf ? (msg: string) => {
+
+      // Use pipeline blob as source so operations chain cumulatively
+      const sourceBlob = pipelineBlobs.get(file);
+      processFile(file, activeTool, sourceBlob, isPdf ? (msg: string) => {
         if (msg === 'Complete!') return; // finally block signal — .then() handles the transition
         idleSpan.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ${msg}`;
       } : undefined).then(result => {
         if (parseInt(card.getAttribute('data-process-id') || '0') !== procCounter) return;
+        // Update pipeline so the next tool inherits this cumulative result
+        pipelineBlobs.set(file, result.blob);
         const newUrl = URL.createObjectURL(result.blob);
         // Store processed blob data on the card for reliable downloads
         const prevUrl = card.getAttribute('data-blob-url');
@@ -587,13 +594,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   // --- Core processing ---
-  async function processFile(file: File, tool: string, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string }> {
+  // sourceBlob: if provided (from pipeline), use as image source instead of raw file — enables operation chaining
+  async function processFile(file: File, tool: string, sourceBlob: Blob | undefined, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string }> {
     // PDF compression path — no image loading needed, uses pdf.js
     if (file.type === pdfMime && tool === 'pdfcompress') {
       return compressPDF(file, onProgress);
     }
 
-    const img = await loadImage(file);
+    // Use pipeline blob if available (chained operations), otherwise load raw file
+    const img = sourceBlob ? await blobToImage(sourceBlob) : await loadImage(file);
     let canvas: HTMLCanvasElement;
     let outputType = file.type;
     let ext = file.name.split('.').pop()!;
@@ -673,6 +682,17 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       r.onload = () => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = r.result as string; };
       r.onerror = reject;
       r.readAsDataURL(file);
+    });
+  }
+
+  // Load a Blob as an HTMLImageElement — used by the pipeline to feed previous results into the next tool
+  function blobToImage(blob: Blob): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load pipeline blob as image')); };
+      img.src = url;
     });
   }
 
