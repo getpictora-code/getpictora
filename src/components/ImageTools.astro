@@ -67,7 +67,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     <!-- ==========================================
          TOOL SELECTOR TABS
          ========================================== -->
-    <div role="tablist" aria-label="Image editing tools" class="relative z-10 flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto">
+    <div role="tablist" aria-label="Image editing tools" class="relative z-10 flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto min-w-0 isolate" style="scrollbar-width:thin">
       {[
         { id: 'resize', label: 'Resize' },
         { id: 'compress', label: 'Compress' },
@@ -702,7 +702,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         const cc = createCanvas(img.naturalWidth, img.naturalHeight);
         canvas = cc.canvas;
         cc.ctx.drawImage(img, 0, 0);
-        return convertToFormat(canvas, file.name, fmt, q, img.naturalWidth, img.naturalHeight);
+        try {
+          return await convertToFormat(canvas, file.name, fmt, q, img.naturalWidth, img.naturalHeight);
+        } catch (e) {
+          console.warn('Convert failed for', fmt, '— falling back to original format', e);
+          // Fallback: return image in its original format so preview stays visible
+          return new Promise(resolve => {
+            canvas.toBlob(b => resolve({ blob: b!, filename: file.name }), file.type, 0.92);
+          });
+        }
       }
       case 'crop': {
         // Clamp source rect strictly inside image bounds — prevents blank canvases
