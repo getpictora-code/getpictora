@@ -696,13 +696,14 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         break;
       }
       case 'compress': {
-        const quality = parseInt((document.getElementById('compress-slider') as HTMLInputElement).value) / 100;
+        const quality = Number(((document.getElementById('compress-slider') as HTMLInputElement).value)) / 100;
         const cc = createCanvas(img.naturalWidth, img.naturalHeight);
         canvas = cc.canvas;
+        // Clear canvas to remove any prior pixel data before stamping the source image
+        cc.ctx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
         cc.ctx.drawImage(img, 0, 0);
         return new Promise(resolve => {
           // Always compress to JPEG so the quality slider visibly reduces file size
-          // (PNG is lossless and ignores quality, making the slider appear broken)
           canvas.toBlob(b => resolve({
             blob: b!,
             filename: file.name.replace(/\.[^.]+$/, '.jpg'),
