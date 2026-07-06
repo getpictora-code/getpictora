@@ -361,6 +361,8 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   let activeTool = 'resize';
   // Pipeline: maps each original file to its cumulative processed blob (chained operations)
   const pipelineBlobs = new Map<File, Blob>();
+  // Original image dimensions of the first uploaded file (for resize presets & Original restore)
+  let origW = 0, origH = 0;
 
   // --- Drag & Drop ---
   const dropLabel = dropZone.querySelector('label')!;
@@ -412,10 +414,26 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       return true;
     });
     if (valid.length === 0) return;
+    const isFirstUpload = files.length === 0;
     files = [...files, ...valid];
     dropZone.classList.add('hidden');
     trustRow.classList.add('hidden');
     workspace.classList.remove('hidden');
+
+    // Capture original dimensions of first image for resize presets
+    if (isFirstUpload && valid[0] && valid[0].type !== pdfMime) {
+      const dimImg = new Image();
+      const dimUrl = URL.createObjectURL(valid[0]);
+      dimImg.onload = () => {
+        URL.revokeObjectURL(dimUrl);
+        origW = dimImg.naturalWidth;
+        origH = dimImg.naturalHeight;
+        // Initialize resize inputs to original dimensions if not already set by user
+        if (resizeW && (!resizeW.value || resizeW.value === '800')) resizeW.value = String(origW);
+        if (resizeH && (!resizeH.value || resizeH.value === '600')) resizeH.value = String(origH);
+      };
+      dimImg.src = dimUrl;
+    }
     updatePreviews();
   }
 
@@ -429,6 +447,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
     pipelineBlobs.clear();
     files = [];
+    origW = 0; origH = 0;
     previewGrid.innerHTML = '';
     dropZone.classList.remove('hidden');
     trustRow.classList.remove('hidden');
@@ -1249,21 +1268,53 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   }
 
   // ==========================================
-  // RESIZE — Live on input, instant on presets
+  // RESIZE — Live input with bidirectional aspect ratio sync, original-dim presets
   // ==========================================
   const resizeW = document.getElementById('resize-w') as HTMLInputElement;
   const resizeH = document.getElementById('resize-h') as HTMLInputElement;
   const resizeAspect = document.getElementById('resize-aspect') as HTMLInputElement;
 
-  resizeW?.addEventListener('input', debouncedReprocess);
-  resizeH?.addEventListener('input', debouncedReprocess);
-  resizeAspect?.addEventListener('change', reprocessPreviews);
+  let resizeSyncing = false; // guard against re-entrant aspect ratio updates
+
+  resizeW?.addEventListener('input', () => {
+    if (resizeSyncing) return;
+    if (resizeAspect?.checked && origW > 0) {
+      resizeSyncing = true;
+      const ratio = origH / origW;
+      resizeH.value = String(Math.round(parseInt(resizeW.value || String(origW)) * ratio));
+      resizeSyncing = false;
+    }
+    debouncedReprocess();
+  });
+
+  resizeH?.addEventListener('input', () => {
+    if (resizeSyncing) return;
+    if (resizeAspect?.checked && origH > 0) {
+      resizeSyncing = true;
+      const ratio = origW / origH;
+      resizeW.value = String(Math.round(parseInt(resizeH.value || String(origH)) * ratio));
+      resizeSyncing = false;
+    }
+    debouncedReprocess();
+  });
+
+  resizeAspect?.addEventListener('change', () => {
+    // When enabling aspect ratio, sync height from current width immediately
+    if (resizeAspect.checked && origW > 0) {
+      resizeH.value = String(Math.round(parseInt(resizeW.value || String(origW)) * (origH / origW)));
+    }
+    reprocessPreviews();
+  });
 
   document.querySelectorAll('[id^="resize-preset-"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const pct = btn.id === 'resize-preset-50' ? 0.5 : btn.id === 'resize-preset-75' ? 0.75 : 1;
-      resizeW.value = String(Math.round(parseInt(resizeW.value || '800') * pct));
-      resizeH.value = String(Math.round(parseInt(resizeH.value || '600') * pct));
+      if (origW === 0 || origH === 0) return; // dimensions not loaded yet
+      let pct: number;
+      if (btn.id === 'resize-preset-50') pct = 0.5;
+      else if (btn.id === 'resize-preset-75') pct = 0.75;
+      else pct = 1; // Original
+      resizeW.value = String(Math.round(origW * pct));
+      resizeH.value = String(Math.round(origH * pct));
       reprocessPreviews();
     });
   });
