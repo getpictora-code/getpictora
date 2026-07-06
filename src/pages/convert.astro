@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ImageTools from '../components/ImageTools.astro';
+import FAQAccordion from '../components/FAQAccordion.astro';
 import SchemaOrg from '../components/SchemaOrg.astro';
 
 const pageTitle = 'Convert Images Online — JPG, PNG, WebP Converter';
@@ -25,6 +26,20 @@ const pageDesc = 'Convert images between JPG, PNG, and WebP formats online for f
   <section class="bg-surface-secondary">
     <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
       <ImageTools initialTool="convert" />
+    </div>
+  </section>
+  <section class="bg-surface-primary">
+    <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent text-center">FAQ</p>
+      <h2 class="mt-3 text-center text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl">Frequently asked questions</h2>
+      <div class="mt-10">
+        <FAQAccordion items={[
+          { question: 'How do I convert an image into a Word Document (.docx) or PDF?', answer: 'Upload your image, switch to the Convert tab, and select Word Document (.docx) or PDF from the output format dropdown. The converter packages your image into a properly formatted document file — all done locally in your browser.' },
+          { question: 'Which web format is better: WebP or AVIF?', answer: 'Both are modern formats that offer excellent compression. WebP has broader browser support and is ideal for general web use. AVIF offers even better compression ratios and supports HDR, but has less universal support. For maximum compatibility, JPEG and PNG remain the safest choices.' },
+          { question: 'Will converting my PNG to JPEG lose quality?', answer: 'JPEG uses lossy compression, so some quality reduction occurs. However, at 90-100% quality, the difference is virtually invisible. Use the quality slider to find your preferred balance between file size and visual fidelity.' },
+          { question: 'Can I convert multiple images at once?', answer: 'Yes! You can upload multiple images and process them as a batch. Each image will be converted to your selected format. Use the Download All button to get everything at once.' },
+        ]} />
+      </div>
     </div>
   </section>
 </BaseLayout>
