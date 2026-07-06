@@ -135,10 +135,20 @@ const initialTool = Astro.props.initialTool ?? 'resize';
           <label class="block text-xs font-semibold text-text-secondary mb-1.5">Output Format</label>
           <select id="convert-format" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             <option id="convert-orig-opt" value="image/jpeg">Keep original (JPEG)</option>
-            <option value="image/jpeg">JPEG — best for photos</option>
-            <option value="image/png">PNG — lossless, transparency</option>
-            <option value="image/webp">WebP — modern, small files</option>
-            <option value="image/avif">AVIF — next-gen compression</option>
+            <optgroup label="Images">
+              <option value="image/jpeg">JPEG — best for photos</option>
+              <option value="image/png">PNG — lossless, transparency</option>
+              <option value="image/webp">WebP — modern, small files</option>
+              <option value="image/avif">AVIF — next-gen compression</option>
+              <option value="image/gif">GIF — simple animations</option>
+              <option value="image/bmp">BMP — uncompressed bitmap</option>
+            </optgroup>
+            <optgroup label="Documents">
+              <option value="application/pdf">PDF Document (.pdf)</option>
+              <option value="application/vnd.openxmlformats-officedocument.wordprocessingml.document">Word Document (.docx)</option>
+              <option value="application/vnd.openxmlformats-officedocument.presentationml.presentation">PowerPoint (.pptx)</option>
+              <option value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">Excel Spreadsheet (.xlsx)</option>
+            </optgroup>
           </select>
         </div>
         <div id="convert-quality-wrap">
@@ -362,7 +372,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   // MIME type → human label for the Convert dropdown
   const MIME_LABEL: Record<string, string> = {
     'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WebP',
-    'image/avif': 'AVIF', 'image/gif': 'GIF', 'image/bmp': 'BMP', 'image/tiff': 'TIFF',
+    'image/avif': 'AVIF', 'image/gif': 'GIF', 'image/bmp': 'BMP',
   };
 
   // --- Drag & Drop ---
@@ -858,23 +868,195 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
   const FORMAT_EXT: Record<string,string> = {
     'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/avif':'avif',
+    'image/gif':'gif','image/bmp':'bmp',
+    'application/pdf':'pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'docx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation':'pptx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'xlsx',
   };
 
+  /** Smart format router: image → canvas.toBlob, document → dedicated packager, all wrapped in try/catch */
   async function convertToFormat(canvas: HTMLCanvasElement, origName: string, mime: string, quality: number): Promise<{blob:Blob;filename:string}> {
     const ext = FORMAT_EXT[mime] || 'png';
     const baseName = origName.replace(/\.[^.]+$/, '');
-    // Browser-native canvas encoding — safe for JPEG, PNG, WebP, AVIF
-    return new Promise((resolve, reject) => {
-      try {
-        canvas.toBlob(b => {
-          if (b) resolve({ blob: b, filename: `${baseName}.${ext}` });
-          else reject(new Error('toBlob returned null'));
-        }, mime, quality);
-      } catch (e) {
-        // AVIF or other format unsupported — fall back to PNG
-        canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0);
+    const w = canvas.width, h = canvas.height;
+
+    try {
+      // ── Image formats: standard canvas encoding ──
+      if (mime.startsWith('image/')) {
+        return await new Promise((resolve, reject) => {
+          canvas.toBlob(b => {
+            if (b) resolve({ blob: b, filename: `${baseName}.${ext}` });
+            else reject(new Error('toBlob returned null'));
+          }, mime, quality);
+        });
       }
-    });
+
+      // ── PDF: jsPDF wrapper ──
+      if (mime === 'application/pdf') {
+        const { jsPDF } = await getJsPDF();
+        const usePng = quality >= 1.0;
+        const dataUrl = canvas.toDataURL(usePng ? 'image/png' : 'image/jpeg', quality);
+        const doc = new jsPDF({
+          orientation: w > h ? 'landscape' : 'portrait',
+          unit: 'px', format: [w, h], hotfixes: ['px_scaling'],
+        });
+        doc.addImage(dataUrl, usePng ? 'PNG' : 'JPEG', 0, 0, w, h, undefined, 'NONE');
+        return { blob: doc.output('blob'), filename: `${baseName}.pdf` };
+      }
+
+      // ── Office formats: ZIP container with embedded PNG ──
+      if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        return await packageDocx(canvas, baseName);
+      }
+      if (mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+        return await packagePptx(canvas, baseName);
+      }
+      if (mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+        return await packageXlsx(canvas, baseName, h);
+      }
+
+      // Unknown — fallback
+      return await new Promise(resolve =>
+        canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0)
+      );
+    } catch (e) {
+      console.warn('Convert failed for', mime, '— falling back to PNG', e);
+      return await new Promise(resolve =>
+        canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0)
+      );
+    }
+  }
+
+  // ── Office format packagers (ZIP container, embedded full-resolution PNG) ──
+
+  async function packageDocx(canvas: HTMLCanvasElement, baseName: string): Promise<{blob:Blob;filename:string}> {
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    const w = canvas.width, h = canvas.height;
+    const emuW = Math.round(w * 9525), emuH = Math.round(h * 9525);
+    const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body><w:p><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="1" name="Picture 1"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="image1"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:body></w:document>`;
+    const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+    const relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>';
+    const docRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+    const imgBytes = dataUrlToBytes(dataUrl);
+    const zip = createZip([
+      {name:'[Content_Types].xml', data:typesXml},
+      {name:'_rels/.rels', data:docRelsXml},
+      {name:'word/document.xml', data:docXml},
+      {name:'word/_rels/document.xml.rels', data:relsXml},
+      {name:'word/media/image1.png', data:imgBytes, raw:true},
+    ]);
+    return { blob: zip, filename: `${baseName}.docx` };
+  }
+
+  async function packagePptx(canvas: HTMLCanvasElement, baseName: string): Promise<{blob:Blob;filename:string}> {
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    const w = canvas.width, h = canvas.height;
+    const emuW = Math.round(w * 12700), emuH = Math.round(h * 12700);
+    const slideW = Math.max(emuW, 12192000), slideH = Math.max(emuH, 6858000);
+    const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:sp><p:nvSpPr><p:cNvPr id="1" name="Image"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill></p:sp></p:cSld></p:sld>`;
+    const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>';
+    const presXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="${slideW}" cy="${slideH}"/></p:presentation>`;
+    const slideRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>';
+    const presRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>';
+    const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>';
+    const imgBytes = dataUrlToBytes(dataUrl);
+    const zip = createZip([
+      {name:'[Content_Types].xml', data:typesXml},
+      {name:'_rels/.rels', data:rootRels},
+      {name:'ppt/presentation.xml', data:presXml},
+      {name:'ppt/_rels/presentation.xml.rels', data:presRels},
+      {name:'ppt/slides/slide1.xml', data:slideXml},
+      {name:'ppt/slides/_rels/slide1.xml.rels', data:slideRels},
+      {name:'ppt/media/image1.png', data:imgBytes, raw:true},
+    ]);
+    return { blob: zip, filename: `${baseName}.pptx` };
+  }
+
+  async function packageXlsx(canvas: HTMLCanvasElement, baseName: string, h: number): Promise<{blob:Blob;filename:string}> {
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData><row r="1" customHeight="true" ht="${Math.round(h * 0.75)}"><c r="A1"><f>IMAGE("${dataUrl}")</f><v>0</v></c></row></sheetData></worksheet>`;
+    const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>';
+    const wbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+    const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const zip = createZip([
+      {name:'[Content_Types].xml', data:typesXml},
+      {name:'_rels/.rels', data:rootRels},
+      {name:'xl/workbook.xml', data:wbXml},
+      {name:'xl/_rels/workbook.xml.rels', data:wbRels},
+      {name:'xl/worksheets/sheet1.xml', data:sheetXml},
+    ]);
+    return { blob: zip, filename: `${baseName}.xlsx` };
+  }
+
+  // ── Lightweight ZIP (STORE, no compression) ──
+  function createZip(files: {name:string;data:string|Uint8Array;raw?:boolean}[]): Blob {
+    const encoder = new TextEncoder();
+    const parts: Uint8Array[] = [];
+    const cdEntries: Uint8Array[] = [];
+    let cdOffset = 0;
+    for (const f of files) {
+      const nameBytes = encoder.encode(f.name);
+      const data = f.raw ? (f.data as Uint8Array) : encoder.encode(f.data as string);
+      const crc = crc32(data);
+      const lh = new Uint8Array(30 + nameBytes.length);
+      const lhView = new DataView(lh.buffer);
+      lhView.setUint32(0, 0x04034b50, true);
+      lhView.setUint16(4, 20, true); lhView.setUint16(6, 0, true); lhView.setUint16(8, 0, true);
+      lhView.setUint16(10, 0, true); lhView.setUint16(12, 0, true);
+      lhView.setUint32(14, crc, true); lhView.setUint32(18, data.length, true); lhView.setUint32(22, data.length, true);
+      lhView.setUint16(26, nameBytes.length, true); lhView.setUint16(28, 0, true);
+      lh.set(nameBytes, 30);
+      parts.push(lh, data);
+      cdOffset += lh.length + data.length;
+      const cd = new Uint8Array(46 + nameBytes.length);
+      const cdView = new DataView(cd.buffer);
+      cdView.setUint32(0, 0x02014b50, true);
+      cdView.setUint16(4, 20, true); cdView.setUint16(6, 20, true); cdView.setUint16(8, 0, true);
+      cdView.setUint16(10, 0, true); cdView.setUint16(12, 0, true); cdView.setUint16(14, 0, true);
+      cdView.setUint32(16, crc, true); cdView.setUint32(20, data.length, true); cdView.setUint32(24, data.length, true);
+      cdView.setUint16(28, nameBytes.length, true);
+      cdView.setUint16(30, 0, true); cdView.setUint16(32, 0, true); cdView.setUint16(34, 0, true);
+      cdView.setUint16(36, 0, true); cdView.setUint32(38, 0, true);
+      cdView.setUint32(42, cdOffset - lh.length - data.length, true);
+      cd.set(nameBytes, 46);
+      cdEntries.push(cd);
+    }
+    const cdStart = cdOffset;
+    const cdData = new Uint8Array(cdEntries.reduce((s,c) => s + c.length, 0));
+    let cdPos = 0;
+    for (const c of cdEntries) { cdData.set(c, cdPos); cdPos += c.length; }
+    const eocd = new Uint8Array(22);
+    const eocdView = new DataView(eocd.buffer);
+    eocdView.setUint32(0, 0x06054b50, true);
+    eocdView.setUint16(4, 0, true); eocdView.setUint16(6, 0, true);
+    eocdView.setUint16(8, files.length, true); eocdView.setUint16(10, files.length, true);
+    eocdView.setUint32(12, cdData.length, true); eocdView.setUint32(16, cdStart, true);
+    eocdView.setUint16(20, 0, true);
+    parts.push(cdData, eocd);
+    const totalLen = parts.reduce((s,p) => s + p.length, 0);
+    const result = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const p of parts) { result.set(p, offset); offset += p.length; }
+    return new Blob([result], {type:'application/zip'});
+  }
+
+  function crc32(data: Uint8Array): number {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < data.length; i++) {
+      crc ^= data[i];
+      for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function dataUrlToBytes(dataUrl: string): Uint8Array {
+    const b64 = dataUrl.split(',')[1];
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
   }
 
   // ==========================================
