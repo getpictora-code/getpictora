@@ -673,6 +673,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   // --- Core processing ---
   // sourceBlob: if provided (from pipeline), use as image source instead of raw file — enables operation chaining
   async function processFile(file: File, tool: string, sourceBlob: Blob | undefined, onProgress?: (msg: string) => void): Promise<{ blob: Blob; filename: string }> {
+    try {
     // PDF compression path — no image loading needed, uses pdf.js
     if (file.type === pdfMime && tool === 'pdfcompress') {
       return compressPDF(file, onProgress);
@@ -782,6 +783,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     return new Promise(resolve => {
       outCanvas.toBlob(b => resolve({ blob: b!, filename: file.name }), outType, 0.92);
     });
+    } catch (e) {
+      console.error('processFile failed:', e);
+      // Return original file as safe fallback
+      return { blob: new Blob([file], { type: file.type }), filename: file.name };
+    }
   }
 
   // --- Image operations ---
