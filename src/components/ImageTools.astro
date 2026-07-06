@@ -67,7 +67,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     <!-- ==========================================
          TOOL SELECTOR TABS
          ========================================== -->
-    <div role="tablist" aria-label="Image editing tools" class="flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto">
+    <div role="tablist" aria-label="Image editing tools" class="relative z-10 flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto">
       {[
         { id: 'resize', label: 'Resize' },
         { id: 'compress', label: 'Compress' },
@@ -1167,25 +1167,29 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   const tabs = document.querySelectorAll<HTMLElement>('.tools-tab');
   const tabList = document.querySelector('[role="tablist"]') as HTMLElement;
 
+  // Active/inactive tab class tokens (used with classList for robustness)
+  const TAB_ACTIVE = ['bg-surface-card', 'text-text-primary', 'shadow-sm'];
+  const TAB_INACTIVE = ['text-text-secondary', 'hover:text-text-primary', 'hover:bg-surface-card/60'];
+
   function activateTab(tab: HTMLElement) {
     const newTool = tab.getAttribute('data-tool')!;
     const wasChanged = activeTool !== newTool;
     activeTool = newTool;
 
-    // Deactivate all: reset classes and data-active
+    // Deactivate all tabs — use classList for reliable add/remove (no string corruption)
     tabs.forEach(b => {
       b.setAttribute('aria-selected', 'false');
       b.tabIndex = -1;
       b.setAttribute('data-active', 'false');
-      b.className = b.className
-        .replace('bg-surface-card text-text-primary shadow-sm', 'text-text-secondary hover:text-text-primary hover:bg-surface-card/60');
+      b.classList.remove(...TAB_ACTIVE);
+      b.classList.add(...TAB_INACTIVE);
     });
     // Activate the clicked tab
     tab.setAttribute('aria-selected', 'true');
     tab.tabIndex = 0;
     tab.setAttribute('data-active', 'true');
-    tab.className = tab.className
-      .replace('text-text-secondary hover:text-text-primary hover:bg-surface-card/60', 'bg-surface-card text-text-primary shadow-sm');
+    tab.classList.remove(...TAB_INACTIVE);
+    tab.classList.add(...TAB_ACTIVE);
     tab.focus();
     panels.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
     panels.querySelector(`[data-panel="${activeTool}"]`)?.classList.remove('hidden');
@@ -1312,9 +1316,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       let pct: number;
       if (btn.id === 'resize-preset-50') pct = 0.5;
       else if (btn.id === 'resize-preset-75') pct = 0.75;
-      else pct = 1; // Original
+      else pct = 1; // Original — also flush pipeline to use raw file
       resizeW.value = String(Math.round(origW * pct));
       resizeH.value = String(Math.round(origH * pct));
+      // "Original" must reset to the raw uploaded file, not upscale the pipeline blob
+      if (pct === 1) pipelineBlobs.clear();
       reprocessPreviews();
     });
   });
