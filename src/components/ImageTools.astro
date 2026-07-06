@@ -172,7 +172,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
             </button>
           ))}
           <span class="mx-0.5 h-5 w-px bg-border-secondary hidden sm:block" aria-hidden="true"></span>
-          <button id="crop-undo-btn" class="inline-flex items-center gap-1 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-700 animate-soft hover:bg-amber-100 hover:border-amber-400 dark:border-amber-700/40 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900/60" title="Restore original uncropped image">
+          <button id="crop-undo-btn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-700 animate-soft hover:bg-amber-100 hover:border-amber-400 dark:border-amber-700/40 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900/60" title="Restore original uncropped image">
             <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
             Undo Crop
           </button>
@@ -191,7 +191,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         <input type="hidden" id="crop-h" value="0" />
 
         <div class="flex flex-wrap items-center gap-2">
-          <button id="crop-reset-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary">
+          <button id="crop-reset-btn" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-border-secondary px-3 py-2 text-xs font-medium text-text-secondary animate-soft hover:bg-surface-secondary hover:text-text-primary">
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             Full Image
           </button>
@@ -1784,32 +1784,50 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     });
   });
 
-  // Shared reset: flush pipeline, restore crop rect to full image, re-render
-  function resetCropToFull() {
+  /**
+   * Explicit Reset State Matrix:
+   * - Flushes pipeline blobs → raw file becomes source for all chained tools
+   * - Resets crop bounds to [0, 0, fullW, fullH] — covers 100% of the image
+   * - Re-renders crop canvas and triggers pipeline reprocess
+   */
+  function resetCropToOriginal() {
+    // Flush pipeline: all subsequent tools (Resize, Compress, Filters) start from raw file
     pipelineBlobs.clear();
+    // Reset hidden crop inputs to sentinel values (processFile interprets 0 as "full image")
     cropX.value = '0'; cropY.value = '0'; cropW.value = '0'; cropH.value = '0';
+    // Restore selection box to full image bounds with pixel accuracy
     if (cropSourceImg) {
-      cropRect = { x: 0, y: 0, w: cropSourceImg.naturalWidth, h: cropSourceImg.naturalHeight };
+      cropRect = {
+        x: 0,
+        y: 0,
+        w: cropSourceImg.naturalWidth,
+        h: cropSourceImg.naturalHeight,
+      };
       renderCropCanvas();
     }
+    // Trigger pipeline reprocess — raw file re-enters as base layer
     reprocessPreviews();
   }
 
-  document.getElementById('crop-reset-btn')?.addEventListener('click', resetCropToFull);
+  document.getElementById('crop-reset-btn')?.addEventListener('click', resetCropToOriginal);
 
-  // "Undo Crop" — reload raw file as source so crop canvas shows the true original
+  // "Undo Crop" — reload raw file as crop source, then reset everything
   document.getElementById('crop-undo-btn')?.addEventListener('click', () => {
-    if (files.length > 0 && files[0] && files[0].type !== pdfMime) {
+    if (files.length > 0 && files[0]?.type !== pdfMime) {
       const rawUrl = URL.createObjectURL(files[0]);
       const img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(rawUrl);
         cropSourceImg = img;
-        resetCropToFull();
+        resetCropToOriginal();
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(rawUrl);
+        resetCropToOriginal();
       };
       img.src = rawUrl;
     } else {
-      resetCropToFull();
+      resetCropToOriginal();
     }
   });
 
