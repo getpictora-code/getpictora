@@ -1892,7 +1892,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   // Utils
   function formatBytes(b: number) { return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB'; }
 
-  /** Update tool-tab badges: show a blue dot if that tool has non-default state */
+  /**
+   * Active Configuration Checking — per-tool badge evaluation.
+   * Each case checks if the tool has non-default modifications applied.
+   * Badge: hidden by default, shown (blue ●) when tool state deviates from neutral.
+   */
   function updateToolBadges() {
     const badges = document.querySelectorAll<HTMLElement>('.tool-badge');
     badges.forEach(b => {
@@ -1904,38 +1908,48 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         case 'resize': {
           const rw = parseInt((document.getElementById('resize-w') as HTMLInputElement)?.value || '0');
           const rh = parseInt((document.getElementById('resize-h') as HTMLInputElement)?.value || '0');
+          // Active if dimensions differ from original uploaded file
           active = origW > 0 && (rw !== origW || rh !== origH);
           break;
         }
         case 'compress': {
           const cv = parseInt((document.getElementById('compress-slider') as HTMLInputElement)?.value || '100');
+          // Active if quality is less than 100% (lossless baseline)
           active = cv < 100;
           break;
         }
         case 'convert': {
           const cf = (document.getElementById('convert-format') as HTMLSelectElement)?.value;
           const origMime = files[0]?.type || '';
+          // Active if selected format differs from uploaded file's original MIME type
           active = !!cf && cf !== origMime;
           break;
         }
         case 'crop': {
-          const cx = parseInt((document.getElementById('crop-x') as HTMLInputElement)?.value || '0');
-          const cy = parseInt((document.getElementById('crop-y') as HTMLInputElement)?.value || '0');
-          const cw = parseInt((document.getElementById('crop-w') as HTMLInputElement)?.value || '0');
-          const ch = parseInt((document.getElementById('crop-h') as HTMLInputElement)?.value || '0');
-          active = cx > 0 || cy > 0 || (cw > 0 && ch > 0 && (cw < origW || ch < origH));
+          const cx = parseInt(cropX?.value || '0');
+          const cy = parseInt(cropY?.value || '0');
+          const cw = parseInt(cropW?.value || '0');
+          const ch = parseInt(cropH?.value || '0');
+          // Use crop source image dimensions if loaded, else original upload dims
+          const srcW = cropSourceImg?.naturalWidth || origW;
+          const srcH = cropSourceImg?.naturalHeight || origH;
+          // Active if crop bounds do not cover the full source image
+          active = cx > 0 || cy > 0 || (cw > 0 && cw < srcW) || (ch > 0 && ch < srcH);
           break;
         }
         case 'rotate': {
+          // Active if a rotation button is explicitly selected (angle ≠ 0°)
           active = !!document.querySelector('.rotate-btn.bg-accent-soft');
           break;
         }
         case 'filters': {
           const fb = document.querySelector('.filter-btn.bg-accent-soft');
+          // Active if any filter is selected and it's not the 'none' (Reset) filter
           active = !!fb && fb.getAttribute('data-filter') !== 'none';
           break;
         }
         case 'pdfcompress': {
+          // Active if any PDF files are loaded
           active = files.some(f => f.type === 'application/pdf');
           break;
         }
