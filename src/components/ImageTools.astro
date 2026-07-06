@@ -883,6 +883,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     return _jsPDF;
   }
 
+  // ==========================================
+  // CONVERT ROUTER — Clean separation: Image Pipeline vs Document Pipeline
+  // ==========================================
+
   const FORMAT_EXT: Record<string,string> = {
     'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/avif':'avif',
     'image/gif':'gif','image/bmp':'bmp',
@@ -892,60 +896,96 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'xlsx',
   };
 
-  /** Smart format router: image → canvas.toBlob, document → dedicated packager, all wrapped in try/catch */
-  async function convertToFormat(canvas: HTMLCanvasElement, origName: string, mime: string, quality: number): Promise<{blob:Blob;filename:string}> {
-    const ext = FORMAT_EXT[mime] || 'png';
+  const IMAGE_MIMES = new Set(['image/jpeg','image/png','image/webp','image/avif','image/gif','image/bmp']);
+  const DOCUMENT_MIMES = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ]);
+
+  // ── TOP-LEVEL ROUTER ──
+  async function convertToFormat(
+    canvas: HTMLCanvasElement, origName: string, mime: string, quality: number
+  ): Promise<{blob:Blob;filename:string}> {
     const baseName = origName.replace(/\.[^.]+$/, '');
-    const w = canvas.width, h = canvas.height;
 
+    if (IMAGE_MIMES.has(mime)) {
+      return handleImageExport(canvas, baseName, mime, quality);
+    }
+    if (DOCUMENT_MIMES.has(mime)) {
+      return handleDocumentExport(canvas, baseName, mime, quality);
+    }
+    // Fallback for unrecognized MIME types
+    return fallbackToPNG(canvas, baseName);
+  }
+
+  // ── IMAGE PIPELINE SUB-ROUTER ──
+  // Routes JPEG, PNG, WebP, AVIF, GIF, BMP through native canvas.toBlob
+  async function handleImageExport(
+    canvas: HTMLCanvasElement, baseName: string, mime: string, quality: number
+  ): Promise<{blob:Blob;filename:string}> {
+    const ext = FORMAT_EXT[mime] || 'png';
     try {
-      // ── Image formats: standard canvas encoding ──
-      if (mime.startsWith('image/')) {
-        return await new Promise((resolve, reject) => {
-          canvas.toBlob(b => {
-            if (b) resolve({ blob: b, filename: `${baseName}.${ext}` });
-            else reject(new Error('toBlob returned null'));
-          }, mime, quality);
-        });
-      }
-
-      // ── PDF: jsPDF wrapper ──
-      if (mime === 'application/pdf') {
-        const { jsPDF } = await getJsPDF();
-        const usePng = quality >= 1.0;
-        const dataUrl = canvas.toDataURL(usePng ? 'image/png' : 'image/jpeg', quality);
-        const doc = new jsPDF({
-          orientation: w > h ? 'landscape' : 'portrait',
-          unit: 'px', format: [w, h], hotfixes: ['px_scaling'],
-        });
-        doc.addImage(dataUrl, usePng ? 'PNG' : 'JPEG', 0, 0, w, h, undefined, 'NONE');
-        return { blob: doc.output('blob'), filename: `${baseName}.pdf` };
-      }
-
-      // ── Office formats: ZIP container with embedded PNG ──
-      if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        return await packageDocx(canvas, baseName);
-      }
-      if (mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-        return await packagePptx(canvas, baseName);
-      }
-      if (mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-        return await packageXlsx(canvas, baseName);
-      }
-
-      // Unknown — fallback
-      return await new Promise(resolve =>
-        canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0)
-      );
-    } catch (e) {
-      console.warn('Convert failed for', mime, '— falling back to PNG', e);
-      return await new Promise(resolve =>
-        canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0)
-      );
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+          if (blob) resolve({ blob, filename: `${baseName}.${ext}` });
+          else reject(new Error(`toBlob returned null for ${mime}`));
+        }, mime, quality);
+      });
+    } catch {
+      // AVIF unsupported in older browsers → PNG fallback
+      return fallbackToPNG(canvas, baseName);
     }
   }
 
-  // ── Office format packagers (ZIP container, embedded full-resolution PNG) ──
+  // ── DOCUMENT LAYOUT SUB-ROUTER ──
+  // Bypasses canvas.toBlob — uses dedicated format packagers
+  async function handleDocumentExport(
+    canvas: HTMLCanvasElement, baseName: string, mime: string, quality: number
+  ): Promise<{blob:Blob;filename:string}> {
+    const w = canvas.width, h = canvas.height;
+    try {
+      switch (mime) {
+        case 'application/pdf':
+          return packagePdf(canvas, baseName, quality, w, h);
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          return packageDocx(canvas, baseName);
+        case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+          return packagePptx(canvas, baseName);
+        case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+          return packageXlsx(canvas, baseName);
+        default:
+          return fallbackToPNG(canvas, baseName);
+      }
+    } catch (e) {
+      console.warn('Document export failed for', mime, '— falling back to PNG', e);
+      return fallbackToPNG(canvas, baseName);
+    }
+  }
+
+  // Universal safe fallback — lossless PNG
+  function fallbackToPNG(canvas: HTMLCanvasElement, baseName: string): Promise<{blob:Blob;filename:string}> {
+    return new Promise(resolve =>
+      canvas.toBlob(b => resolve({ blob: b!, filename: `${baseName}.png` }), 'image/png', 1.0)
+    );
+  }
+
+  // ── DOCUMENT FORMAT PACKAGERS ──
+
+  async function packagePdf(
+    canvas: HTMLCanvasElement, baseName: string, quality: number, w: number, h: number
+  ): Promise<{blob:Blob;filename:string}> {
+    const { jsPDF } = await getJsPDF();
+    const usePng = quality >= 1.0;
+    const dataUrl = canvas.toDataURL(usePng ? 'image/png' : 'image/jpeg', quality);
+    const doc = new jsPDF({
+      orientation: w > h ? 'landscape' : 'portrait',
+      unit: 'px', format: [w, h], hotfixes: ['px_scaling'],
+    });
+    doc.addImage(dataUrl, usePng ? 'PNG' : 'JPEG', 0, 0, w, h, undefined, 'NONE');
+    return { blob: doc.output('blob'), filename: `${baseName}.pdf` };
+  }
 
   async function packageDocx(canvas: HTMLCanvasElement, baseName: string): Promise<{blob:Blob;filename:string}> {
     const dataUrl = canvas.toDataURL('image/png', 1.0);
