@@ -679,8 +679,10 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       return compressPDF(file, onProgress);
     }
 
-    // Use pipeline blob if available (chained operations), otherwise load raw file
-    const img = sourceBlob ? await blobToImage(sourceBlob) : await loadImage(file);
+    // Use pipeline blob if available AND it's an image type (skip non-image blobs like DOCX/PDF)
+    const img = (sourceBlob && sourceBlob.type.startsWith('image/'))
+      ? await blobToImage(sourceBlob)
+      : await loadImage(file);
     let canvas: HTMLCanvasElement;
     let outputType = file.type;
     let ext = file.name.split('.').pop()!;
