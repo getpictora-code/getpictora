@@ -468,6 +468,15 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     pipelineBlobs.clear();
     files = [];
     origW = 0; origH = 0;
+    // Reset rotate/filter active button states
+    document.querySelectorAll('.rotate-btn.bg-accent-soft, .filter-btn.bg-accent-soft').forEach(b => {
+      b.classList.remove('bg-accent-soft','text-accent','border-accent/40');
+    });
+    // Reset crop state
+    cropSourceImg = null;
+    cropX.value = '0'; cropY.value = '0'; cropW.value = '0'; cropH.value = '0';
+    cropRect = { x: 0, y: 0, w: 0, h: 0 };
+    if (cropCanvas && cropCtx) cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
     previewGrid.innerHTML = '';
     dropZone.classList.remove('hidden');
     trustRow.classList.remove('hidden');
@@ -913,7 +922,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         return await packagePptx(canvas, baseName);
       }
       if (mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-        return await packageXlsx(canvas, baseName, h);
+        return await packageXlsx(canvas, baseName);
       }
 
       // Unknown — fallback
@@ -973,19 +982,30 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     return { blob: zip, filename: `${baseName}.pptx` };
   }
 
-  async function packageXlsx(canvas: HTMLCanvasElement, baseName: string, h: number): Promise<{blob:Blob;filename:string}> {
+  async function packageXlsx(canvas: HTMLCanvasElement, baseName: string): Promise<{blob:Blob;filename:string}> {
     const dataUrl = canvas.toDataURL('image/png', 1.0);
-    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData><row r="1" customHeight="true" ht="${Math.round(h * 0.75)}"><c r="A1"><f>IMAGE("${dataUrl}")</f><v>0</v></c></row></sheetData></worksheet>`;
-    const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>';
+    const w = canvas.width, h = canvas.height;
+    const emuW = Math.round(w * 9525), emuH = Math.round(h * 9525);
+    // Embed image as a proper drawing (same pattern as DOCX/PPTX), not a broken IMAGE() formula
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData/><drawing r:id="rId1"/></worksheet>`;
+    const drawingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="${emuW}" cy="${emuH}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="Image"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`;
+    const drawingRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>';
+    const sheetRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>';
+    const typesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>';
     const wbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>';
     const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
     const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    const imgBytes = dataUrlToBytes(dataUrl);
     const zip = createZip([
       {name:'[Content_Types].xml', data:typesXml},
       {name:'_rels/.rels', data:rootRels},
       {name:'xl/workbook.xml', data:wbXml},
       {name:'xl/_rels/workbook.xml.rels', data:wbRels},
       {name:'xl/worksheets/sheet1.xml', data:sheetXml},
+      {name:'xl/worksheets/_rels/sheet1.xml.rels', data:sheetRels},
+      {name:'xl/drawings/drawing1.xml', data:drawingXml},
+      {name:'xl/drawings/_rels/drawing1.xml.rels', data:drawingRels},
+      {name:'xl/media/image1.png', data:imgBytes, raw:true},
     ]);
     return { blob: zip, filename: `${baseName}.xlsx` };
   }
@@ -1356,7 +1376,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   convertFormat?.addEventListener('change', () => {
     const v = convertFormat.value;
     // Show quality slider for formats that support quality: JPEG, WebP, PDF
-    const showQuality = v === 'image/jpeg' || v === 'image/webp' || v === 'application/pdf';
+    const showQuality = v === 'image/jpeg' || v === 'image/webp' || v === 'image/avif' || v === 'application/pdf';
     convertQualityWrap.classList.toggle('hidden', !showQuality);
     reprocessPreviews();
   });
@@ -1403,13 +1423,16 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     const file = files[0];
     // Use pipeline blob if available (previous transforms), else raw file
     const blob = pipelineBlobs.get(file);
-    const src = blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
+    const src = URL.createObjectURL(blob || file);
     const img = new Image();
     img.onload = () => {
-      if (blob) URL.revokeObjectURL(src);
+      URL.revokeObjectURL(src);
       cropSourceImg = img;
       initCropFromImage();
       renderCropCanvas();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(src);
     };
     img.src = src;
   }
@@ -1750,12 +1773,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     if (activeTool === 'crop' && files.length > 0) loadCropSource();
   };
 
-  // Also load when activating crop tab from another tool
-  const _origActivateTab = activateTab;
-  activateTab = function(tab: HTMLElement) {
-    _origActivateTab(tab);
-    if (activeTool === 'crop' && files.length > 0) loadCropSource();
-  };
+  // (updatePreviews wrapper above handles crop source loading on tab switch)
 
   // ==========================================
   // ROTATE — Instant on button click
