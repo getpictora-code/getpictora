@@ -133,6 +133,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         <div>
           <label class="block text-xs font-semibold text-text-secondary mb-1.5">Output Format</label>
           <select id="convert-format" class="w-full rounded-xl border border-border-primary bg-surface-primary px-4 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            <option id="convert-orig-opt" value="image/jpeg">Keep original (JPEG)</option>
             <optgroup label="Images">
               <option value="image/jpeg">JPEG (best for photos)</option>
               <option value="image/png">PNG (lossless, transparency)</option>
@@ -368,6 +369,11 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   const pipelineBlobs = new Map<File, Blob>();
   // Original image dimensions of the first uploaded file (for resize presets & Original restore)
   let origW = 0, origH = 0;
+  // MIME type → human label for the Convert dropdown
+  const MIME_LABEL: Record<string, string> = {
+    'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WebP',
+    'image/gif': 'GIF', 'image/bmp': 'BMP', 'image/tiff': 'TIFF',
+  };
 
   // --- Drag & Drop ---
   const dropLabel = dropZone.querySelector('label')!;
@@ -433,11 +439,20 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         URL.revokeObjectURL(dimUrl);
         origW = dimImg.naturalWidth;
         origH = dimImg.naturalHeight;
-        // Initialize resize inputs to original dimensions if not already set by user
         if (resizeW && (!resizeW.value || resizeW.value === '800')) resizeW.value = String(origW);
         if (resizeH && (!resizeH.value || resizeH.value === '600')) resizeH.value = String(origH);
       };
       dimImg.src = dimUrl;
+
+      // Auto-select original format in Convert dropdown so no forced conversion happens
+      const mime = valid[0].type;
+      const origOpt = document.getElementById('convert-orig-opt') as HTMLOptionElement;
+      if (origOpt && convertFormat) {
+        const label = MIME_LABEL[mime] || mime.split('/')[1]?.toUpperCase() || 'Original';
+        origOpt.value = mime;
+        origOpt.textContent = `Keep original (${label})`;
+        convertFormat.value = mime;
+      }
     }
     updatePreviews();
   }
