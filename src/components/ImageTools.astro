@@ -67,7 +67,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     <!-- ==========================================
          TOOL SELECTOR TABS
          ========================================== -->
-    <div role="tablist" aria-label="Image editing tools" class="relative z-10 flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto min-w-0 isolate" style="scrollbar-width:thin">
+    <div role="tablist" aria-label="Image editing tools" class="relative z-10 flex flex-nowrap gap-1 rounded-2xl border border-border-secondary bg-surface-secondary p-1.5 overflow-x-auto min-w-0 isolate" style="scrollbar-width:thin;row-gap:0.5rem;contain:layout">
       {[
         { id: 'resize', label: 'Resize' },
         { id: 'compress', label: 'Compress' },
@@ -89,6 +89,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
           data-active={i === 0 ? 'true' : 'false'}
         >
           {tool.label}
+          <span class="tool-badge hidden ml-1 text-[10px] leading-none align-middle" data-badge={tool.id} aria-hidden="true">●</span>
         </button>
       ))}
     </div>
@@ -461,6 +462,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
     dropZone.classList.remove('hidden');
     trustRow.classList.remove('hidden');
     workspace.classList.add('hidden');
+    updateToolBadges();
   }
 
   // --- Preview rendering ---
@@ -1088,6 +1090,7 @@ const initialTool = Astro.props.initialTool ?? 'resize';
   function reprocessPreviews() {
     // Delegate entirely to updatePreviews — single code path, zero race conditions
     updatePreviews();
+    updateToolBadges();
   }
 
   /** Debounced version for continuous inputs (sliders, number fields) */
@@ -1622,6 +1625,58 @@ const initialTool = Astro.props.initialTool ?? 'resize';
 
   // Utils
   function formatBytes(b: number) { return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB'; }
+
+  /** Update tool-tab badges: show a blue dot if that tool has non-default state */
+  function updateToolBadges() {
+    const badges = document.querySelectorAll<HTMLElement>('.tool-badge');
+    badges.forEach(b => {
+      const tool = b.getAttribute('data-badge')!;
+      let active = false;
+      if (files.length === 0) { b.classList.add('hidden'); return; }
+
+      switch (tool) {
+        case 'resize': {
+          const rw = parseInt((document.getElementById('resize-w') as HTMLInputElement)?.value || '0');
+          const rh = parseInt((document.getElementById('resize-h') as HTMLInputElement)?.value || '0');
+          active = origW > 0 && (rw !== origW || rh !== origH);
+          break;
+        }
+        case 'compress': {
+          const cv = parseInt((document.getElementById('compress-slider') as HTMLInputElement)?.value || '100');
+          active = cv < 100;
+          break;
+        }
+        case 'convert': {
+          const cf = (document.getElementById('convert-format') as HTMLSelectElement)?.value;
+          const origMime = files[0]?.type || '';
+          active = !!cf && cf !== origMime;
+          break;
+        }
+        case 'crop': {
+          const cx = parseInt((document.getElementById('crop-x') as HTMLInputElement)?.value || '0');
+          const cy = parseInt((document.getElementById('crop-y') as HTMLInputElement)?.value || '0');
+          const cw = parseInt((document.getElementById('crop-w') as HTMLInputElement)?.value || '0');
+          const ch = parseInt((document.getElementById('crop-h') as HTMLInputElement)?.value || '0');
+          active = cx > 0 || cy > 0 || (cw > 0 && ch > 0 && (cw < origW || ch < origH));
+          break;
+        }
+        case 'rotate': {
+          active = !!document.querySelector('.rotate-btn.bg-accent-soft');
+          break;
+        }
+        case 'filters': {
+          const fb = document.querySelector('.filter-btn.bg-accent-soft');
+          active = !!fb && fb.getAttribute('data-filter') !== 'none';
+          break;
+        }
+        case 'pdfcompress': {
+          active = files.some(f => f.type === 'application/pdf');
+          break;
+        }
+      }
+      b.classList.toggle('hidden', !active);
+    });
+  }
   function toast(msg: string, type: 'error'|'info') {
     const t = document.createElement('div');
     t.className = `fixed bottom-6 right-6 z-50 rounded-xl px-5 py-3 text-sm font-medium shadow-lg animate-soft ${type==='error'?'bg-red-500 text-white':'bg-surface-card border border-border-primary text-text-primary'}`;
