@@ -556,15 +556,18 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       origSizeEl.textContent = formatBytes(file.size);
       newSizeEl.textContent = '...';
 
-      // Multi-stage progress animation — cycles through realistic processing steps
+      // Multi-stage progress animation — always visible for at least 1.2s
       const stages = ['Analyzing pixels', 'Applying optimizations', 'Finalizing'];
       let stageIdx = 0;
-      idleSpan.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ${stages[0]}...`;
+      const spinnerSvg = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+      idleSpan.innerHTML = `${spinnerSvg} ${stages[0]}...`;
+      const animStart = Date.now();
+      const MIN_ANIM_MS = 1200; // minimum time animation stays visible
+      let animDone = false;
       const stageTimer = setInterval(() => {
         stageIdx = (stageIdx + 1) % stages.length;
-        const spinner = idleSpan.querySelector('svg');
-        idleSpan.innerHTML = (spinner ? spinner.outerHTML : '') + ` ${stages[stageIdx]}...`;
-      }, 500);
+        idleSpan.innerHTML = `${spinnerSvg} ${stages[stageIdx]}...`;
+      }, 400);
 
       // Atomic processing counter to prevent stale results
       let procCounter = parseInt(card.getAttribute('data-process-id') || '0') + 1;
@@ -573,10 +576,16 @@ const initialTool = Astro.props.initialTool ?? 'resize';
       // Use pipeline blob as source so operations chain cumulatively
       const sourceBlob = pipelineBlobs.get(file);
       processFile(file, activeTool, sourceBlob, isPdf ? (msg: string) => {
-        if (msg === 'Complete!') return; // finally block signal — .then() handles the transition
-        idleSpan.innerHTML = `<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ${msg}`;
-      } : undefined).then(result => {
+        if (msg === 'Complete!') return;
+        idleSpan.innerHTML = `${spinnerSvg} ${msg}`;
+      } : undefined).then(async result => {
         if (parseInt(card.getAttribute('data-process-id') || '0') !== procCounter) return;
+        // Enforce minimum animation time so users always see the loader
+        const elapsed = Date.now() - animStart;
+        if (elapsed < MIN_ANIM_MS) await new Promise(r => setTimeout(r, MIN_ANIM_MS - elapsed));
+        clearInterval(stageTimer);
+        idleSpan.innerHTML = `${spinnerSvg} Done!`;
+        await new Promise(r => setTimeout(r, 400)); // brief "Done!" display
         // Update pipeline so the next tool inherits this cumulative result
         pipelineBlobs.set(file, result.blob);
         const newUrl = URL.createObjectURL(result.blob);
@@ -632,7 +641,6 @@ const initialTool = Astro.props.initialTool ?? 'resize';
         }
 
         // Transition button: Processing → Download Ready
-        clearInterval(stageTimer);
         idleSpan.classList.add('hidden');
         readySpan.classList.remove('hidden');
         dlBtn.className = dlBtn.className.replace('bg-accent-soft text-accent', 'bg-accent text-white hover:bg-accent-hover hover:shadow-sm');
