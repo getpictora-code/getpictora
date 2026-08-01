@@ -20,6 +20,7 @@ export const NAV = [
   { label: 'Crop', href: '/crop' },
   { label: 'Rotate', href: '/rotate' },
   { label: 'Filters', href: '/filters' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Contact', href: '/contact' },
 ] as const;
 
