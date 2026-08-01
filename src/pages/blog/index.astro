@@ -1,0 +1,83 @@
+﻿---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaOrg from '../../components/SchemaOrg.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog')).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const pageTitle = 'Blog &amp; Guides | GetPictora';
+const pageDesc = 'Explore articles, guides, and tutorials on image editing, compression, file conversion, and digital media processing.';
+---
+
+<BaseLayout title={pageTitle} description={pageDesc}>
+  <SchemaOrg type="BreadcrumbList" data={{ items: [
+    { name: 'Home', item: new URL('/', Astro.url).href },
+    { name: 'Blog', item: new URL('/blog', Astro.url).href },
+  ] }} />
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden border-b border-border-secondary bg-surface-primary">
+    <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-soft/30 via-transparent to-transparent" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-accent">Blog</p>
+      <h1 class="mt-3 text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+        GetPictora Blog
+      </h1>
+      <p class="mt-5 max-w-2xl mx-auto text-lg leading-relaxed text-text-secondary">
+        Tips, tutorials, and insights on modern image tools &mdash; compression, format conversion, AI editing, and more.
+      </p>
+    </div>
+  </section>
+
+  <!-- Posts Grid -->
+  <section class="bg-surface-secondary">
+    <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      {
+        posts.length === 0 ? (
+          <div class="text-center py-20">
+            <p class="text-lg text-text-secondary">No posts published yet. Stay tuned!</p>
+          </div>
+        ) : (
+          <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {posts.map((post) => (
+              <article class="group flex flex-col rounded-2xl border border-border-secondary bg-surface-card p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border-primary">
+                <div class="mb-4 flex items-center gap-2">
+                  <span class="rounded-lg bg-accent-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent">
+                    {post.data.keywords?.[0] || 'Guide'}
+                  </span>
+                  <span class="text-xs text-text-tertiary">
+                    {Math.ceil((post.body?.length || 1000) / 1500)} min read
+                  </span>
+                </div>
+                <h2 class="text-xl font-bold text-text-primary transition-colors duration-200 group-hover:text-accent">
+                  <a href={`/blog/${post.id.replace(/\.md$/, '')}/`}>{post.data.title}</a>
+                </h2>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-text-secondary line-clamp-3">
+                  {post.data.description}
+                </p>
+                <div class="mt-5 flex items-center justify-between border-t border-border-secondary pt-4">
+                  <time class="text-xs text-text-tertiary" datetime={post.data.pubDate.toISOString()}>
+                    {post.data.pubDate.toLocaleDateString('en-US', {
+                      year: 'numeric', month: 'long', day: 'numeric',
+                    })}
+                  </time>
+                  <a
+                    href={`/blog/${post.id.replace(/\.md$/, '')}/`}
+                    class="inline-flex items-center gap-1 text-sm font-semibold text-accent transition-colors duration-200 hover:text-accent-hover"
+                  >
+                    Read Article
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
