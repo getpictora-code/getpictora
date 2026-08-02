@@ -6,6 +6,7 @@ import sitemap from '@astrojs/sitemap';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://getpictora.com',
+  trailingSlash: 'always',
   integrations: [sitemap()],
   // Production build optimizations
   build: {
